@@ -91,7 +91,7 @@ class Preprocessor():
         # Loop over frames with tracks and images
         for frame, img in enumerate(vframes):
             if frame in person['frames']:
-                offset = np.where(person['frames'] == frame)[0][0]
+                offset = np.where(np.array(person['frames']) == frame)[0][0]
                 center_x, center_y = person['bbox'][offset][:2]
                 size = person['bbox'][offset][3] * 0.6
 
@@ -128,7 +128,7 @@ class Preprocessor():
     def find_people(self, vframes):
         logging.info('running YOLOv3 multi-people tracker')
 
-        dataloader = torch.utils.data.DataLoader(vframes, batch_size=self.batch_size, num_workers=8)
+        dataloader = torch.utils.data.DataLoader(vframes, batch_size=self.batch_size, num_workers=0)
 
         # initialize tracker
         self.tracker = Sort()
