@@ -3,6 +3,8 @@ import shutil
 import glob
 import math
 import logging
+import subprocess
+
 import coloredlogs
 
 import torch
@@ -70,9 +72,6 @@ class Preprocessor():
         # frames_dir = os.path.join(output_dir, os.path.basename(video_path) + '-frames')
         # os.makedirs(frames_dir, exist_ok=True)
 
-        # Create a folder to contain the tracked and cropped video frames
-        # crops_dir = os.path.join(output_dir, os.path.basename(video_path) + '-crops')
-        # os.makedirs(crops_dir, exist_ok=True)
 
         vframes = self.read_video(video_path)
 
@@ -94,7 +93,6 @@ class Preprocessor():
         assert(len(vframes) == len(person['frames']))
 
 
-
         crops_list = []
 
         # Crop and resize
@@ -110,14 +108,16 @@ class Preprocessor():
         torch.cat(crops_list, out=crops)
 
 
-
-        print(crops.size())
-
         pelvis = self.find_pelvis(crops)
 
-        img_list = []
+        # img_list = []
 
-        for (pelvis_x, pelvis_y), img, bbox in zip(pelvis, vframes, person['bbox']):
+        # Create a folder to contain the tracked and cropped video frames
+        frames_dir = os.path.join(output_dir, os.path.basename(video_path) + '-frames')
+        os.makedirs(frames_dir, exist_ok=True)
+
+
+        for idx, ((pelvis_x, pelvis_y), img, bbox) in enumerate(zip(pelvis, vframes, person['bbox'])):
             # pelvis_loc is relative to 224x224 crop
 
             bbox_x, bbox_y = bbox[:2]
@@ -135,18 +135,26 @@ class Preprocessor():
             offset_y = bbox_y - (size / 2)
 
             # Offset the pelvis with the offset of the YOLO crop (back to original pixel space)
-            pelvis_x += offset_x
-            pelvis_y += offset_y
+            pelvis_x = int(pelvis_x + offset_x)
+            pelvis_y = int(pelvis_y + offset_y)
 
-            img = img[:, int(pelvis_y - size * 0.6):int(pelvis_y + size * 0.6), int(pelvis_x - size * 0.6):int(pelvis_x + size * 0.6)]
-            img_list.append(img.numpy())
-            # img_list = np.append(img_list, img.numpy())
+            img = img[:, pelvis_y - int(size * 0.6):pelvis_y + int(size * 0.6), pelvis_x - int(size * 0.6):pelvis_x + int(size * 0.6)]
 
-        print(len(img_list))
-        print(img_list[0].shape)
+            img = torch.unsqueeze(img, 0)
+            img = interpolate(img, size=112)
 
-        output_path = os.path.join(output_dir, os.path.basename(video_path))
-        cv2.imwrite(output_path, np.array(img_list))
+            cv2.imwrite(os.path.join(frames_dir, f'{idx:06d}.png'), img)
+
+        command = [
+            'ffmpeg', '-y', '-threads', '16', '-i', os.path.join(frames_dir, f'{idx:06d}.png'), '-profile:v', 'baseline',
+            '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', os.path.basename(video_path),
+        ]
+
+        # print(f'Running \"{" ".join(command)}\"')
+        subprocess.call(command)
+
+        # images_to_video(img_folder=tmp_write_folder, output_vid_file=output_file)
+        # shutil.rmtree(tmp_write_folder)
 
 
     def square_crop(self, frame, bbox):
