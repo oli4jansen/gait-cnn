@@ -13,6 +13,7 @@ from yolov3.yolo import YOLOv3
 import numpy as np
 import cv2
 from stacked_hourglass import HumanPosePredictor, hg2
+from stacked_hourglass.datasets.mpii import MPII_JOINT_NAMES
 
 import transforms
 from sort import Sort
@@ -22,12 +23,12 @@ EXPECTED_FPS = 30
 
 
 class Preprocessor():
-    def __init__(self, device=None):
+    def __init__(self):
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(torch.cuda.current_device())
             logging.info('using %s', device_name)
             # Force CUDA tensors by default
-            torch.set_default_tensor_type('torch.cuda.FloatTensor')
+            # torch.set_default_tensor_type('torch.cuda.FloatTensor')
             self.device = 'cuda'
         else:
             logging.info('using CPU, limiting threads')
@@ -86,30 +87,38 @@ class Preprocessor():
 
         logging.info(f'found person from frames {person["frames"][0]}-{person["frames"][-1]}')
 
+        # Slice only frames with the person in it
+        vframes = vframes[person['frames'][0]:person['frames'][-1] + 1]
+
+        assert(len(vframes) == len(person['frames']))
+
+        crop_frames = torch.tensor([self.square_crop(img, bbox) for img, bbox in zip(vframes, person['bbox'])])
+
+        print(crop_frames.size())
 
         # cframes = torch.tensor([])
         # Loop over frames with tracks and images
-        for frame, img in enumerate(vframes):
-            if frame in person['frames']:
-                offset = np.where(np.array(person['frames']) == frame)[0][0]
-                center_x, center_y = person['bbox'][offset][:2]
-                size = person['bbox'][offset][3] * 0.6
+        # for frame, img in enumerate(vframes):
+        #     if frame in person['frames']:
+        #         # Get bounding box center and size
+        #         offset = np.where(np.array(person['frames']) == frame)[0][0]
+        #         center_x, center_y = person['bbox'][offset][:2]
+        #         size = person['bbox'][offset][3] * 0.6
+        #
+        #         # Crop the image to YOLO bounding box
+        #         yolo_crop = img[:,int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
 
-                yolo_crop = img[:,int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
+        pelvis = self.find_pelvis(crop_frames)
 
-                # tensor([], size=(0, 367, 1920))
-                yolo_crop = yolo_crop.permute(1, 2, 0)
+        print(pelvis.shape)
 
-                print(yolo_crop.shape)
+    def square_crop(self, frame, bbox):
+        """ Frame is of shape (channels, width, height) """
 
-                yolo_crop = cv2.resize(yolo_crop, (224, 224))
+        center_x, center_y = bbox[:2]
+        size = bbox[3] * 0.6
 
-                joints = self.pose_predictor.estimate_joints(yolo_crop, flip=True)
-
-                print(joints)
-
-                # cframes = torch.cat(cframes, crop)
-
+        return frame[:, int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
 
     def read_video(self, video_path):
         """ Takes path to a video and returns tensor with the shape (num_frames, height, width, channels). """
@@ -214,11 +223,22 @@ class Preprocessor():
 
 
 
-# def find_pelvis(video):
-#     pass
+    def find_pelvis(self, frames):
+        crops = torch.nn.functional.interpolate(frames, size=224)
+
+        print(crops.size())
+
+        joints_frames = self.pose_predictor.estimate_joints(crops, flip=True)
+
+        print(joints_frames.size())
+
+        return [joints[MPII_JOINT_NAMES.index('pelvis')] for joints in joints_frames]
+
+        #
 
 
 if __name__ == '__main__':
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
 
-    Preprocessor(device='cpu').preprocess_dir('/Users/o.f.jansen/Desktop/single_person_videos/small', 'tmp')
+    # Preprocessor().preprocess_dir('/Users/o.f.jansen/Desktop/single_person_videos/small', 'tmp')
+    Preprocessor().preprocess_dir('/home/olivier/single_person_videos/violence', 'tmp')
