@@ -95,7 +95,6 @@ class Preprocessor():
 
 
 
-
         crops_list = []
 
         # Crop and resize
@@ -114,21 +113,38 @@ class Preprocessor():
 
         print(crops.size())
 
-        # cframes = torch.tensor([])
-        # Loop over frames with tracks and images
-        # for frame, img in enumerate(vframes):
-        #     if frame in person['frames']:
-        #         # Get bounding box center and size
-        #         offset = np.where(np.array(person['frames']) == frame)[0][0]
-        #         center_x, center_y = person['bbox'][offset][:2]
-        #         size = person['bbox'][offset][3] * 0.6
-        #
-        #         # Crop the image to YOLO bounding box
-        #         yolo_crop = img[:,int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
-
         pelvis = self.find_pelvis(crops)
 
-        print(pelvis.shape)
+        img_list = []
+
+        for (pelvis_x, pelvis_y), img, bbox in zip(pelvis, vframes, person['bbox']):
+            # pelvis_loc is relative to 224x224 crop
+
+            bbox_x, bbox_y = bbox[:2]
+            size = bbox[2]
+
+            # Get scale factor of YOLO crop to 224x224
+            scale_factor = 224 / size * 1.1
+
+            # Scale the pelvis back to YOLO crop pixel space
+            pelvis_x /= scale_factor
+            pelvis_y /= scale_factor
+
+            # Get the offset to the top and left of the YOLO crop
+            offset_x = bbox_x - (size / 2)
+            offset_y = bbox_y - (size / 2)
+
+            # Offset the pelvis with the offset of the YOLO crop (back to original pixel space)
+            pelvis_x += offset_x
+            pelvis_y += offset_y
+
+            img = img[:, int(pelvis_y - size * 0.6):int(pelvis_y + size * 0.6), int(pelvis_x - size * 0.6):int(pelvis_x + size * 0.6)]
+            img_list.append(img)
+
+        print(len(img_list))
+        print(img_list[0].shape)
+
+
 
     def square_crop(self, frame, bbox):
         """ Frame is of shape (channels, width, height) """
