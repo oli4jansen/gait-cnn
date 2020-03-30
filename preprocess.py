@@ -96,15 +96,16 @@ class Preprocessor():
 
 
 
-        # crops_list = []
-        #
-        # # Crop and resize
-        # for img, bbox in zip(vframes, person['bbox']):
-        #     crop = self.square_crop(img, bbox)
-        #     crop = interpolate(crop, size=224)
-        #     crops_list.append(crop)
+        crops_list = []
 
-        crops_list = [interpolate(self.square_crop(img, bbox), 224) for img, bbox in zip(vframes, person['bbox'])]
+        # Crop and resize
+        for img, bbox in zip(vframes, person['bbox']):
+            crop = self.square_crop(img, bbox)
+            crop = torch.unsqueeze(crop, 0)
+            crop = interpolate(crop, size=224)
+            crops_list.append(crop)
+
+        # crops_list = [interpolate(self.square_crop(img, bbox), 224) for img, bbox in zip(vframes, person['bbox'])]
 
         crops = torch.Tensor(len(vframes), 3, 224, 224)
         torch.cat(crops_list, out=crops)
