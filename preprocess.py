@@ -67,12 +67,12 @@ class Preprocessor():
 
     def preprocess_video(self, video_path, output_dir):
         # Create a folder to contain the video frames
-        frames_dir = os.path.join(output_dir, os.path.basename(video_path) + '-frames')
-        os.makedirs(frames_dir, exist_ok=True)
+        # frames_dir = os.path.join(output_dir, os.path.basename(video_path) + '-frames')
+        # os.makedirs(frames_dir, exist_ok=True)
 
         # Create a folder to contain the tracked and cropped video frames
-        crops_dir = os.path.join(output_dir, os.path.basename(video_path) + '-crops')
-        os.makedirs(crops_dir, exist_ok=True)
+        # crops_dir = os.path.join(output_dir, os.path.basename(video_path) + '-crops')
+        # os.makedirs(crops_dir, exist_ok=True)
 
         vframes = self.read_video(video_path)
 
@@ -139,11 +139,14 @@ class Preprocessor():
             pelvis_y += offset_y
 
             img = img[:, int(pelvis_y - size * 0.6):int(pelvis_y + size * 0.6), int(pelvis_x - size * 0.6):int(pelvis_x + size * 0.6)]
-            img_list.append(img)
+            img_list.append(img.numpy())
+            # img_list = np.append(img_list, img.numpy())
 
         print(len(img_list))
         print(img_list[0].shape)
 
+        output_path = os.path.join(output_dir, os.path.basename(video_path))
+        cv2.imwrite(output_path, np.array(img_list))
 
 
     def square_crop(self, frame, bbox):
