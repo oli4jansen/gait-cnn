@@ -23,10 +23,17 @@ EXPECTED_FPS = 30
 
 class Preprocessor():
     def __init__(self, device=None):
-        if device is not None:
-            self.device = device
+        if torch.cuda.is_available():
+            device_name = torch.cuda.get_device_name(torch.cuda.current_device())
+            logging.info('using %s', device_name)
+            # Force CUDA tensors by default
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
+            self.device = 'cuda'
         else:
-            self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            logging.info('using CPU, limiting threads')
+            torch.set_num_threads(1)
+            torch.set_num_interop_threads(1)
+            self.device = 'cpu'
 
         self.batch_size = 12
         self.detection_threshold = 0.7
@@ -88,7 +95,13 @@ class Preprocessor():
                 center_x, center_y = person['bbox'][offset][:2]
                 size = person['bbox'][offset][3] * 0.6
 
-                yolo_crop = img[int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
+                yolo_crop = img[:,int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
+
+                # tensor([], size=(0, 367, 1920))
+                yolo_crop = yolo_crop.permute(1, 2, 0)
+
+                print(yolo_crop.shape)
+
                 yolo_crop = cv2.resize(yolo_crop, (224, 224))
 
                 joints = self.pose_predictor.estimate_joints(yolo_crop, flip=True)
@@ -178,7 +191,7 @@ class Preprocessor():
             # Group the frames on which the person was detected into groups
             p['frames'] = group_sequence(p['frames'])
             # If the largest group of this person is larger than the largest found thus far, it is saved
-            if max([len(g) for g in p['frames']]) > max([len(g) for g in person['frames']]):
+            if person is None or max([len(g) for g in p['frames']]) > max([len(g) for g in person['frames']]):
                 person = p
 
         # Find the index of the largest frames group
