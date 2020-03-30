@@ -8,6 +8,7 @@ import coloredlogs
 import torch
 import torchvision
 from PIL import Image
+from torch.nn.functional import interpolate
 from tqdm import tqdm
 from yolov3.yolo import YOLOv3
 import numpy as np
@@ -92,9 +93,25 @@ class Preprocessor():
 
         assert(len(vframes) == len(person['frames']))
 
-        crop_frames = torch.tensor([self.square_crop(img, bbox) for img, bbox in zip(vframes, person['bbox'])])
 
-        print(crop_frames.size())
+
+
+        # crops_list = []
+        #
+        # # Crop and resize
+        # for img, bbox in zip(vframes, person['bbox']):
+        #     crop = self.square_crop(img, bbox)
+        #     crop = interpolate(crop, size=224)
+        #     crops_list.append(crop)
+
+        crops_list = [interpolate(self.square_crop(img, bbox), 224) for img, bbox in zip(vframes, person['bbox'])]
+
+        crops = torch.Tensor(len(vframes), 3, 224, 224)
+        torch.cat(crops_list, out=crops)
+
+
+
+        print(crops.size())
 
         # cframes = torch.tensor([])
         # Loop over frames with tracks and images
@@ -108,7 +125,7 @@ class Preprocessor():
         #         # Crop the image to YOLO bounding box
         #         yolo_crop = img[:,int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
 
-        pelvis = self.find_pelvis(crop_frames)
+        pelvis = self.find_pelvis(crops)
 
         print(pelvis.shape)
 
@@ -189,6 +206,7 @@ class Preprocessor():
 
         return people
 
+
     def find_most_common_person(self, people):
         if people is None or len(people) == 0:
             return None
@@ -196,7 +214,6 @@ class Preprocessor():
         person = None
         # Loop over all detected people
         for p in people.values():
-            print(p)
             # Group the frames on which the person was detected into groups
             p['frames'] = group_sequence(p['frames'])
             # If the largest group of this person is larger than the largest found thus far, it is saved
@@ -221,20 +238,17 @@ class Preprocessor():
         return person
 
 
-
-
     def find_pelvis(self, frames):
-        crops = torch.nn.functional.interpolate(frames, size=224)
+        # crops = torch.nn.functional.interpolate(frames, size=224)
+        #
+        # print(crops.size())
 
-        print(crops.size())
-
-        joints_frames = self.pose_predictor.estimate_joints(crops, flip=True)
+        joints_frames = self.pose_predictor.estimate_joints(frames, flip=True)
 
         print(joints_frames.size())
 
         return [joints[MPII_JOINT_NAMES.index('pelvis')] for joints in joints_frames]
 
-        #
 
 
 if __name__ == '__main__':
