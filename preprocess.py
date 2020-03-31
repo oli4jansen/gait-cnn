@@ -145,7 +145,7 @@ class Preprocessor():
             img = torch.squeeze(img, 0)
 
 
-            img = np.clip(img * 255, 0, 255)
+            img = np.clip(img.numpy() * 255, 0, 255)
             img = img.astype(np.uint8)
             img = img.transpose(1, 2, 0)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
