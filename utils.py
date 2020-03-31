@@ -10,6 +10,15 @@ from torchvision import transforms
 from torchvision.transforms.functional import to_tensor
 
 
+def images_to_video(images_path, output_path):
+    command = [
+        'ffmpeg', '-y', '-threads', '16', '-i', images_path, '-profile:v', 'baseline',
+        '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', output_path,
+    ]
+
+    subprocess.call(command)
+
+
 def video_to_images(video_file, image_folder):
     """Split the video into frame images using ffmpeg"""
 
