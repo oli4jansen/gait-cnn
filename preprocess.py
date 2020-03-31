@@ -121,10 +121,10 @@ class Preprocessor():
             # pelvis_loc is relative to 224x224 crop
 
             bbox_x, bbox_y = bbox[:2]
-            size = bbox[2]
+            size = bbox[2] * 0.6
 
             # Get scale factor of YOLO crop to 224x224
-            scale_factor = 224 / size * 1.2
+            scale_factor = 224 / size
 
             # Scale the pelvis back to YOLO crop pixel space
             pelvis_x /= scale_factor
@@ -138,7 +138,8 @@ class Preprocessor():
             pelvis_x = int(pelvis_x + offset_x)
             pelvis_y = int(pelvis_y + offset_y)
 
-            img = img[:, pelvis_y - int(size * 0.6):pelvis_y + int(size * 0.6), pelvis_x - int(size * 0.6):pelvis_x + int(size * 0.6)]
+            img[:,pelvis_y - 10: pelvis_y + 10, pelvis_x - 10:pelvis_x + 10] = torch.tensor(np.ones(shape=(3,20,20)))
+            # img = img[:, pelvis_y - int(size * 0.6):pelvis_y + int(size * 0.6), pelvis_x - int(size * 0.6):pelvis_x + int(size * 0.6)]
 
             img = torch.unsqueeze(img, 0)
             img = interpolate(img, size=112)
