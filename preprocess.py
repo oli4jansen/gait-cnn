@@ -124,7 +124,7 @@ class Preprocessor():
             size = bbox[2]
 
             # Get scale factor of YOLO crop to 224x224
-            scale_factor = 224 / size * 1.1
+            scale_factor = 224 / size * 1.2
 
             # Scale the pelvis back to YOLO crop pixel space
             pelvis_x /= scale_factor
@@ -142,19 +142,28 @@ class Preprocessor():
 
             img = torch.unsqueeze(img, 0)
             img = interpolate(img, size=112)
+            img = torch.squeeze(img, 0)
+
+
+            img = np.clip(img * 255, 0, 255)
+            img = img.astype(np.uint8)
+            img = img.transpose(1, 2, 0)
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
             cv2.imwrite(os.path.join(frames_dir, f'{idx:06d}.png'), img)
 
+        output = os.path.join(output_dir, os.path.basename(video_path))
+
         command = [
-            'ffmpeg', '-y', '-threads', '16', '-i', os.path.join(frames_dir, f'{idx:06d}.png'), '-profile:v', 'baseline',
-            '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', os.path.basename(video_path),
+            'ffmpeg', '-y', '-threads', '16', '-i', os.path.join(frames_dir, '%06d.png'), '-profile:v', 'baseline',
+            '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', output,
         ]
 
-        # print(f'Running \"{" ".join(command)}\"')
         subprocess.call(command)
 
-        # images_to_video(img_folder=tmp_write_folder, output_vid_file=output_file)
-        # shutil.rmtree(tmp_write_folder)
+        logging.info(f'video saved at {output}')
+
+        shutil.rmtree(frames_dir)
 
 
     def square_crop(self, frame, bbox):
