@@ -75,6 +75,8 @@ class Preprocessor():
 
         vframes = self.read_video(video_path)
 
+        logging.info(f'video has {len(vframes)} frames')
+
         people = self.find_people(vframes)
 
         if people is None or len(people) is 0:
@@ -90,14 +92,12 @@ class Preprocessor():
         # Slice only frames with the person in it
         vframes = vframes[person['frames'][0]:person['frames'][-1] + 1]
 
-        assert(len(vframes) == len(person['frames']))
-
+        assert(len(vframes) == len(person['frames']) == len(person['bbox']))
 
         crops_list = []
-
         # Crop and resize
-        for img, bbox in zip(vframes, person['bbox']):
-            crop = self.square_crop(img, bbox)
+        for img, (center_x, center_y, size) in zip(vframes, person['bbox']):
+            crop = self.square_crop(img, center_x, center_y, size)
             crop = torch.unsqueeze(crop, 0)
             crop = interpolate(crop, size=224)
             crops_list.append(crop)
@@ -121,7 +121,7 @@ class Preprocessor():
             # pelvis_loc is relative to 224x224 crop
 
             bbox_x, bbox_y = bbox[:2]
-            size = bbox[2] * 0.6
+            size = bbox[2]
 
             # Get scale factor of YOLO crop to 224x224
             scale_factor = 224 / size
@@ -140,6 +140,7 @@ class Preprocessor():
 
             img[:,pelvis_y - 10: pelvis_y + 10, pelvis_x - 10:pelvis_x + 10] = torch.tensor(np.ones(shape=(3,20,20)))
             # img = img[:, pelvis_y - int(size * 0.6):pelvis_y + int(size * 0.6), pelvis_x - int(size * 0.6):pelvis_x + int(size * 0.6)]
+            img = self.square_crop(img, pelvis_x, pelvis_y, size / 1.2)
 
             img = torch.unsqueeze(img, 0)
             img = interpolate(img, size=112)
@@ -167,13 +168,15 @@ class Preprocessor():
         shutil.rmtree(frames_dir)
 
 
-    def square_crop(self, frame, bbox):
+    def square_crop(self, frame, center_x, center_y, size):
         """ Frame is of shape (channels, width, height) """
 
-        center_x, center_y = bbox[:2]
-        size = bbox[3] * 0.6
+        y_start = max(0, int(center_y - size))
+        y_end = min(int(center_y + size), frame.size()[1])
+        x_start = max(0, int(center_x - size))
+        x_end = min(int(center_x + size), frame.size()[2])
 
-        return frame[:, int(center_y - size):int(center_y + size), int(center_x - size):int(center_x + size)]
+        return frame[:, y_start:y_end, x_start:x_end]
 
     def read_video(self, video_path):
         """ Takes path to a video and returns tensor with the shape (num_frames, height, width, channels). """
@@ -224,8 +227,8 @@ class Preprocessor():
 
                 w, h = d[2] - d[0], d[3] - d[1]
                 c_x, c_y = d[0] + w/2, d[1] + h/2
-                w = h = np.where(w / h > 1, w, h)
-                bbox = np.array([c_x, c_y, w, h])
+                size = np.where(w / h > 1, w, h)
+                bbox = np.array([c_x, c_y, size * 0.6])
 
                 if person_id in people.keys():
                     people[person_id]['bbox'].append(bbox)
