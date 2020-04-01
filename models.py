@@ -1,8 +1,6 @@
 import torch
 from torchvision.models.video import r2plus1d_18
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 class GaitNet(torch.nn.Module):
     def __init__(self):
         super(GaitNet, self).__init__()
