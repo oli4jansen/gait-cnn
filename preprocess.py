@@ -17,10 +17,10 @@ from stacked_hourglass import HumanPosePredictor, hg2
 from stacked_hourglass.datasets.mpii import MPII_JOINT_NAMES
 
 from sort import Sort
-from utils import group_sequence, images_to_video
+from utils import group_sequence
 
 
-EXPECTED_FPS = 30
+EXPECTED_FPS = 24
 
 coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
 
@@ -156,9 +156,9 @@ class Preprocessor():
             output_path = os.path.join(self.output_dir, f'clip-{idx:04d}_' + os.path.basename(video_path))
 
             command = [
-                'ffmpeg', '-start_number', start, '-y', '-threads', '16', '-i', images_path, '-profile:v', 'baseline',
-                '-vframes', (end - start), '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v',
-                'error', output_path,
+                'ffmpeg', '-start_number', str(start), '-y', '-threads', '16', '-i', images_path,
+                '-profile:v', 'baseline', '-vframes', str(int(end - start)), '-level', '3.0', '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p', '-an', '-v', 'error', output_path,
             ]
 
             subprocess.call(command)
@@ -195,7 +195,7 @@ class Preprocessor():
     def find_people(self, frames):
         logging.info('running YOLOv3 multi-people tracker')
 
-        dataloader = torch.utils.data.DataLoader(frames, batch_size=self.batch_size, num_workers=0)
+        dataloader = torch.utils.data.DataLoader(frames, batch_size=16, num_workers=0)
 
         self.tracker = Sort()
         detection_threshold = 0.7
