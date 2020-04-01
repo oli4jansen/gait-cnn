@@ -9,6 +9,7 @@ import coloredlogs
 
 import torch
 import torchvision
+from scipy.signal import savgol_filter
 from torch.nn.functional import interpolate
 from yolov3.yolo import YOLOv3
 import numpy as np
@@ -94,7 +95,7 @@ class Preprocessor():
             crops_list.append(crop)
 
         # YOLO crops to tensor
-        crops = torch.Tensor(len(vframes), 3, 224, 224)
+        crops = torch.Tensor(len(person['frames']), 3, 224, 224)
         torch.cat(crops_list, out=crops)
 
         # Find the pelvis in each of the crops
@@ -104,12 +105,17 @@ class Preprocessor():
         frames_dir = os.path.join(self.output_dir, os.path.basename(video_path) + '-frames')
         os.makedirs(frames_dir, exist_ok=True)
 
+        sizes = person['bbox'][:,2]
+        window_length = len(sizes) - 1 if len(sizes) % 2 else len(sizes)
+        smoothed_sizes = 0.333 * savgol_filter(sizes, window_length, 4) + 0.666 * max(sizes)
+
         for idx, ((pelvis_x, pelvis_y), img, bbox) in enumerate(zip(pelvis_locations, vframes, person['bbox'])):
             # Pelvis location is relative to the 224x224 YOLO crop
             # It needs to be sized back and an offset needs to be added to center the original image around it
 
             bbox_x, bbox_y = bbox[:2]
             size = bbox[2]
+            size = smoothed_sizes[idx]
 
             # Get scale factor of YOLO crop to 224x224
             scale_factor = 224 / size
@@ -139,10 +145,12 @@ class Preprocessor():
 
             cv2.imwrite(os.path.join(frames_dir, f'{idx:06d}.png'), img)
 
+        del vframes
+
         clips = []
-        frames_left = len(vframes)
+        frames_left = len(person['frames'])
         while frames_left > self.num_frames_per_clip:
-            start = len(vframes) - frames_left
+            start = len(person['frames']) - frames_left
             end = start + self.num_frames_per_clip
             clips.append((start, end))
             frames_left -= self.num_frames_per_clip
@@ -165,8 +173,7 @@ class Preprocessor():
 
         # Clear frames directory
         shutil.rmtree(frames_dir)
-
-        logging.info(f'video saved at {output_path}')
+        logging.info(f'saved {len(clips)} clips')
 
     def square_crop(self, frame, center_x, center_y, size):
         """ Input frame must be of shape (channels, width, height) """
