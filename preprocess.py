@@ -106,7 +106,7 @@ class Preprocessor():
         os.makedirs(frames_dir, exist_ok=True)
 
         sizes = person['bbox'][:,2]
-        window_length = len(sizes) - 1 if len(sizes) % 2 else len(sizes)
+        window_length = len(sizes) if len(sizes) % 2 else len(sizes) - 1
         smoothed_sizes = 0.333 * savgol_filter(sizes, window_length, 4) + 0.666 * max(sizes)
 
         for idx, ((pelvis_x, pelvis_y), img, bbox) in enumerate(zip(pelvis_locations, vframes, person['bbox'])):
