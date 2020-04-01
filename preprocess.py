@@ -280,4 +280,4 @@ class Preprocessor():
         return [joints[MPII_JOINT_NAMES.index('pelvis')] for joints in joints_frames]
 
 if __name__ == '__main__':
-    Preprocessor(output_dir='tmp').preprocess_dir('/home/olivier/single_person_videos/violence')
+    Preprocessor(output_dir='data/synth-cmu-clips').preprocess_dir('data/synth-cmu')
