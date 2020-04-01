@@ -11,6 +11,7 @@ def parse_synth_folder(dir, extensions=None):
 
     videos = []
     class_to_id = dict()
+    class_counts = []
     dir = os.path.expanduser(dir)
 
     file_list = []
@@ -27,21 +28,24 @@ def parse_synth_folder(dir, extensions=None):
         # Extract class from filename
         _class = '_'.join(filename.split('_')[1:-1])
         if _class not in class_to_id:
-            class_to_id[_class] = len(class_to_id) + 1
+            class_id = len(class_to_id)
+            class_to_id[_class] = class_id
+            class_counts[class_id] = 0
 
         item = (path, class_to_id[_class])
         videos.append(item)
+        class_counts[item[1]] += 1
 
     id_to_class = {v: k for k, v in class_to_id.items()}
 
-    return videos, id_to_class
+    return videos, id_to_class, class_counts
 
 class GaitDataset(VisionDataset):
 
     def __init__(self, root, transform=None):
         super(GaitDataset, self).__init__(root)
 
-        self.videos, self.id_to_class = parse_synth_folder(root)
+        self.videos, self.id_to_class, self.class_counts = parse_synth_folder(root)
         self.classes = sorted(self.id_to_class.values())
         self.transform = transform
 

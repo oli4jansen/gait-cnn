@@ -161,8 +161,8 @@ class Preprocessor():
         images_path = os.path.join(frames_dir, '%06d.png')
 
         for idx, (start, end) in enumerate(clips):
-            clip_name = os.path.basename(video_path).split('.')[:-1] + f'_clip{idx:04d}' + \
-                        os.path.basename(video_path).split('.')[-1]
+            clip_name = '.'.join(os.path.basename(video_path).split('.')[:-1]) +\
+                        f'_clip{idx:04d}' + os.path.basename(video_path).split('.')[-1]
             output_path = os.path.join(self.output_dir, clip_name)
 
             command = [

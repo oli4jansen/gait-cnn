@@ -17,7 +17,7 @@ coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s
 
 parser = argparse.ArgumentParser(description='GaitNet')
 
-parser.add_argument('--dataset', type=str, default='data/synth-cmu')
+parser.add_argument('--dataset', type=str, default='data/synth-cmu-clips')
 
 # def inference():
 #     dataset_dir = 'tmp'
@@ -59,29 +59,30 @@ def train(dataset):
         normalize
     ])
 
-    logging.info('initialising dataset, sampler and ')
-
     dataset_train = GaitDataset(
         dataset,
-        step_between_clips=2,
-        transform=transform_train,
-        frame_rate=15
+        transform=transform_train
     )
 
     logging.info(str(len(dataset_train)) + ' clips in train dataset')
 
-    train_sampler = RandomClipSampler(dataset_train.video_clips, clips_per_video)
+    # train_sampler = RandomClipSampler(dataset_train.video_clips, clips_per_video)
 
-    logging.info(str(len(train_sampler)) + ' clips in train datasampler')
+    batch_size = 20
+    weights = 1 / torch.Tensor(dataset_train.class_counts)
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, 5)
+    train_data_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True, sampler=sampler)
+
+    logging.info(str(len(sampler)) + ' clips in train datasampler')
 
 
-    train_data_loader = torch.utils.data.DataLoader(
-        dataset_train,
-        batch_size=24,
-        sampler=train_sampler,
-        num_workers=2,
-        pin_memory=True,
-        collate_fn=collate_fn)
+    # train_data_loader = torch.utils.data.DataLoader(
+    #     dataset_train,
+    #     batch_size=24,
+    #     sampler=train_sampler,
+    #     num_workers=2,
+    #     pin_memory=True,
+    #     collate_fn=collate_fn)
 
     logging.info(str(len(train_data_loader)) + ' clips in train dataloader')
 
