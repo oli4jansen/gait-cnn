@@ -3,6 +3,7 @@ import shutil
 import glob
 import math
 import logging
+import subprocess
 
 import coloredlogs
 
@@ -24,7 +25,7 @@ EXPECTED_FPS = 30
 coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
 
 class Preprocessor():
-    def __init__(self, output_dir):
+    def __init__(self, output_dir, num_frames_per_clip=16, distance_between_clips=-4):
         if torch.cuda.is_available():
             device_name = torch.cuda.get_device_name(torch.cuda.current_device())
             logging.info('using %s', device_name)
@@ -38,6 +39,12 @@ class Preprocessor():
             self.device = 'cpu'
 
         self.output_dir = output_dir
+
+        if distance_between_clips <= -1 * num_frames_per_clip:
+            raise ValueError('distance_between_clips cannot be equal to or less than -1 * num_frames_per_clip')
+
+        self.num_frames_per_clip = num_frames_per_clip
+        self.distance_between_clips = distance_between_clips
 
         self.detector = YOLOv3(
             device=self.device, img_size=608, person_detector=True, video=True, return_dict=True
@@ -132,11 +139,29 @@ class Preprocessor():
 
             cv2.imwrite(os.path.join(frames_dir, f'{idx:06d}.png'), img)
 
+        clips = []
+        frames_left = len(vframes)
+        while frames_left > self.num_frames_per_clip:
+            start = len(vframes) - frames_left
+            end = start + self.num_frames_per_clip
+            clips.append((start, end))
+            frames_left -= self.num_frames_per_clip
+            frames_left -= self.distance_between_clips
+
+
         # Combine frames into video
         images_path = os.path.join(frames_dir, '%06d.png')
-        output_path = os.path.join(self.output_dir, os.path.basename(video_path))
 
-        images_to_video(images_path, output_path)
+        for idx, (start, end) in enumerate(clips):
+            output_path = os.path.join(self.output_dir, f'clip-{idx:04d}_' + os.path.basename(video_path))
+
+            command = [
+                'ffmpeg', '-start_number', start, '-y', '-threads', '16', '-i', images_path, '-profile:v', 'baseline',
+                '-vframes', (end - start), '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v',
+                'error', output_path,
+            ]
+
+            subprocess.call(command)
 
         # Clear frames directory
         shutil.rmtree(frames_dir)

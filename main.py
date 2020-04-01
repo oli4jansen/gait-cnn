@@ -1,15 +1,23 @@
+import coloredlogs
 import torch
 import torchvision
 from torch.utils.data import DataLoader
 from torch.utils.data._utils.collate import default_collate
 from torchvision.datasets.samplers import RandomClipSampler, UniformClipSampler
+import argparse
+import logging
+
 from tqdm import tqdm
 
-from dataset import preprocess_directory, VideoDataset, Kinetics400
+from dataset import GaitDataset
 from models import GaitNet
-from torchvision.models.video import r2plus1d_18
 import transforms as T
 
+coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
+
+parser = argparse.ArgumentParser(description='GaitNet')
+
+parser.add_argument('--dataset', type=str, default='data/synth-cmu')
 
 # def inference():
 #     dataset_dir = 'tmp'
@@ -36,12 +44,11 @@ def collate_fn(batch):
     return default_collate(batch)
 
 
-def train():
-    dataset_dir = 'data/synth-cmu'
+def train(dataset):
     clips_per_video = 5
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # Normalize according to Kinetics-400
+    # Normalize according to Kinetics-400, which is what R(2+1)D has been trained on
     normalize = T.Normalize(mean=[0.43216, 0.394666, 0.37645],
                             std=[0.22803, 0.22145, 0.216989])
 
@@ -52,43 +59,32 @@ def train():
         normalize
     ])
 
-    transform_test = torchvision.transforms.Compose([
-        T.ToFloatTensorInZeroOne(),
-        T.Resize((112, 112)),
-        normalize
-    ])
+    logging.info('initialising dataset, sampler and ')
 
-    dataset_train = Kinetics400(
-        dataset_dir,
-        frames_per_clip=16,
+    dataset_train = GaitDataset(
+        dataset,
         step_between_clips=2,
         transform=transform_train,
         frame_rate=15
     )
 
-    exit()
-
-
-    dataset_test = Kinetics400(
-        dataset_dir,
-        frames_per_clip=16,
-        step_between_clips=2,
-        transform=transform_test,
-        frame_rate=15
-    )
+    logging.info(str(len(dataset_train)) + ' clips in train dataset')
 
     train_sampler = RandomClipSampler(dataset_train.video_clips, clips_per_video)
-    test_sampler = UniformClipSampler(dataset_test.video_clips, clips_per_video)
+
+    logging.info(str(len(train_sampler)) + ' clips in train datasampler')
+
 
     train_data_loader = torch.utils.data.DataLoader(
-        dataset_train, batch_size=24,
-        sampler=train_sampler, num_workers=2,
-        pin_memory=True, collate_fn=collate_fn)
+        dataset_train,
+        batch_size=24,
+        sampler=train_sampler,
+        num_workers=2,
+        pin_memory=True,
+        collate_fn=collate_fn)
 
-    test_data_loader = DataLoader(
-        dataset_test, batch_size=24,
-        sampler=test_sampler, num_workers=2,
-        pin_memory=True, collate_fn=collate_fn)
+    logging.info(str(len(train_data_loader)) + ' clips in train dataloader')
+
 
     model = GaitNet()
     model.to(device)
@@ -96,14 +92,12 @@ def train():
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-    print(len(train_data_loader))
-
     for epoch in range(5):
-
         print('Epoch ' + str(epoch))
 
         running_loss = 0.0
-        for i, data in enumerate(train_data_loader, 0):
+        for i, data in tqdm(enumerate(train_data_loader, 0)):
+            print(i)
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
 
@@ -131,7 +125,31 @@ def train():
 
     model.eval()
 
-    # print(str(len(data_loader_test)) + ' videos')
+    transform_test = torchvision.transforms.Compose([
+        T.ToFloatTensorInZeroOne(),
+        T.Resize((112, 112)),
+        normalize
+    ])
+
+    dataset_test = GaitDataset(
+        dataset,
+        frames_per_clip=16,
+        step_between_clips=2,
+        transform=transform_test,
+        frame_rate=15
+    )
+
+    test_sampler = UniformClipSampler(dataset_test.video_clips, clips_per_video)
+
+    test_data_loader = DataLoader(
+        dataset_test,
+        batch_size=24,
+        sampler=test_sampler,
+        num_workers=2,
+        pin_memory=True,
+        collate_fn=collate_fn)
+
+    print(str(len(test_data_loader)) + ' clips in test dataloader')
 
     with torch.no_grad():
         for video, target in test_data_loader:
@@ -140,13 +158,8 @@ def train():
             output = model(video)
             print(output.size())
             print(output)
-            # for clip_output in output:
-            #     c = torch.argmax(clip_output)
-            #     print(c)
-            #     print(torch.max(clip_output))
-            # print(torch.argmax(output))
-
-    # print(output.size())
 
 if __name__ == '__main__':
-    train()
+    args = parser.parse_args()
+
+    train(dataset=args.dataset)
