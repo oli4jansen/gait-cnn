@@ -14,7 +14,7 @@ class GaitNet(torch.nn.Module):
         # Replace FC with our layer and enable gradients
         # self.r2plus1d_18.fc = torch.nn.Linear(in_features=512, out_features=512)
 
-        self.r2plus1d.fc = torch.nn.Sequential(
+        self.r2plus1d_18.fc = torch.nn.Sequential(
             torch.nn.Linear(in_features=self.r2plus1d_18.fc.in_features, out_features=512),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=512, out_features=num_classes)
