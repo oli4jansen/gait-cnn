@@ -22,7 +22,7 @@ def train(model, dataset):
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
     optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0)
 
-    for epoch in range(1):
+    for epoch in range(5):
         logging.info(f'epoch: {epoch}')
 
         for i, (inputs, labels) in enumerate(dataloader):
@@ -66,15 +66,16 @@ def test(model, dataset):
         100. * correct / len(dataloader.dataset)))
 
 def main(args):
+    init()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-    model = GaitNet()
-    model.to(device)
 
     dataset = GaitDataset(args.dataset)
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
     train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+    model = GaitNet(num_classes=len(dataset.classes))
+    model.to(device)
 
     train(model=model, dataset=train_set)
     test(model=model, dataset=test_set)
