@@ -13,14 +13,18 @@ parser.add_argument('--dataset', type=str, default='data/synth-cmu-clips')
 
 def train(model, dataset):
     # TODO: use dataset_train.classes and dataset_train.class_counts for weighted sampling in data loader
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
+    batch_size = 24
+    weights = 1 / torch.Tensor(dataset.class_counts)
+    sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, batch_size)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+
+    # dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
 
     criterion = torch.nn.CrossEntropyLoss()
-    # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
     for epoch in range(5):
         logging.info(f'epoch: {epoch}')
@@ -53,9 +57,8 @@ def test(model, dataset):
     correct = 0
     with torch.no_grad():
         for inputs, labels in dataloader:
-            # data, target = data.to(device), target.to(device)
             output = model(inputs)
-            test_loss += torch.nn.functional.nll_loss(output, labels, reduction='sum').item()  # sum up batch loss
+            test_loss += torch.nn.functional.cross_entropy(output, labels).item()
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(labels.view_as(pred)).sum().item()
 
