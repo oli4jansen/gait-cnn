@@ -14,16 +14,13 @@ parser.add_argument('--dataset', type=str, default='data/synth-cmu-clips')
 def train(model, dataset):
     # TODO: use dataset_train.classes and dataset_train.class_counts for weighted sampling in data loader
     batch_size = 24
-    weights = 1 / torch.Tensor(dataset.dataset.class_counts)
-    sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, batch_size)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=sampler)
-
-    # dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
 
-    criterion = torch.nn.CrossEntropyLoss()
+    weight = torch.Tensor(dataset.dataset.class_counts)
+    criterion = torch.nn.CrossEntropyLoss(weight=weight)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=1.0)
 
     for epoch in range(10):
