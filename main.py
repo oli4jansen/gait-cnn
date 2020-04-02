@@ -19,9 +19,10 @@ def train(model, dataset):
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
 
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0)
 
-    for epoch in range(5):
+    for epoch in range(1):
         logging.info(f'epoch: {epoch}')
 
         for i, (inputs, labels) in enumerate(dataloader):
