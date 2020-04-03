@@ -46,7 +46,7 @@ class GaitNet(torch.nn.Module):
 
     def forward(self, input):
         batch_size, channels, frames, height, width = input.size()
-        assert(channels == CHANNELS and frames == FRAMES and height == HEIGHT and width == WIDHT)
+        assert(channels == CHANNELS and frames == FRAMES and height == HEIGHT and width == WIDTH)
 
         # Swap channels and frames and upsize to 224x224 for stacked hourglass pose estimator
 
