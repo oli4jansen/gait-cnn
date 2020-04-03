@@ -40,10 +40,11 @@ class GaitNet(torch.nn.Module):
 
         print('upscaled')
         print(joints_input.size())
+        print(joints_input.device)
 
-        joints_list = [self.pose_predictor.estimate_joints(i) for i in joints_input]
+        joints_list = [self.pose_predictor.estimate_joints(i, flip=True) for i in joints_input]
         joints_output = torch.Tensor(batch_size, frames, channels, 16, 2)
-        torch.cat(joints_list, out=joints_output)
+        torch.cat(joints_list, dim=0, out=joints_output)
 
         print('joints_output')
         print(joints_output.size())
