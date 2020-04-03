@@ -20,12 +20,22 @@ class GaitNet(torch.nn.Module):
         self.pose_predictor = HumanPosePredictor(self.pose_model)
 
         self.pose_cnn = torch.nn.Sequential(
-            torch.nn.Conv3d(1, 1, 3, padding=1),
-            torch.nn.BatchNorm3d(1),
+            torch.nn.Conv3d(1, 32, 2, padding=2),
+            torch.nn.BatchNorm3d(32),
             torch.nn.ReLU(),
-            torch.nn.AvgPool3d((1, 1, 1)),
+
+            torch.nn.Conv3d(32, 64, 3, padding=1),
+            torch.nn.BatchNorm3d(64),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool3d((2, 1, 1)),
+
+            torch.nn.Conv3d(64, 32, 3, padding=1),
+            torch.nn.BatchNorm3d(32),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool3d((3, 3, 3)),
+
             Flatten(),
-            torch.nn.Linear(in_features=512, out_features=512)
+            torch.nn.Linear(in_features=576, out_features=512)
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
