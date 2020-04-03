@@ -60,8 +60,10 @@ class GaitNet(torch.nn.Module):
         # List with tensors of shape: (1, frames, 16, 2)
         pose_list = [torch.unsqueeze(self.pose_predictor.estimate_joints(i, flip=True), 0) for i in joints_input]
 
-        pose_cnn_input = torch.Tensor(batch_size, frames, 16, 2)
-        torch.cat(pose_list, dim=0, out=pose_cnn_input)
+        # pose_cnn_input = torch.Tensor(batch_size, frames, 16, 2)
+        pose_cnn_input = torch.cat(pose_list, dim=0)
+        # Add an empty channels dimension
+        pose_cnn_input = torch.unsqueeze(pose_cnn_input, 1)
 
         # joints_output = joints_output.view(size=(batch_size, frames * 16 * 2))
 
@@ -71,7 +73,7 @@ class GaitNet(torch.nn.Module):
         cnn_output = self.r2plus1d_18(input)
 
         # Combine R(2+1)D and pose information for classifier
-        classifier_input = torch.Tensor(batch_size, 1024)
-        torch.cat([cnn_output, pose_cnn_output], dim=1, out=classifier_input)
+        # classifier_input = torch.Tensor(batch_size, 1024)
+        classifier_input = torch.cat([cnn_output, pose_cnn_output], dim=1)
 
         return self.classifier(classifier_input)
