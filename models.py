@@ -2,62 +2,76 @@ import torch
 from torchvision.models.video import r2plus1d_18
 from stacked_hourglass import HumanPosePredictor, hg2
 
+FRAMES = 16
+CHANNELS = 3
+HEIGHT = 112
+WIDTH = 112
+
+class Flatten(torch.nn.Module):
+    def forward(self, input):
+        return input.flatten(start_dim=1)
+
+
 class GaitNet(torch.nn.Module):
     def __init__(self, num_classes=15):
         super(GaitNet, self).__init__()
+
+        self.pose_model = hg2(pretrained=True)
+        self.pose_predictor = HumanPosePredictor(self.pose_model)
+
+        self.pose_cnn = torch.nn.Sequential(
+            torch.nn.Conv3D(3, 1, 3, padding=1),
+            torch.nn.AvgPool3d((1, 1, 1)),
+            Flatten(),
+            torch.nn.Linear(512, num_classes)
+        )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
         # Simulate identity with empty sequential
         self.r2plus1d_18.fc = torch.nn.Sequential()
 
-        self.pose_model = hg2(pretrained=True)
+        # Freeze all pretrained params
+        for param in self.pose_model.parameters():
+            param.requires_grad = False
 
         # Freeze all pretrained params
         for param in self.r2plus1d_18.parameters():
             param.requires_grad = False
 
-        # Freeze all pretrained params
-        for param in self.pose_model.parameters():
-            param.requires_grad = False
-
-        self.pose_predictor = HumanPosePredictor(self.pose_model)
-
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(in_features=512 + 16 * 2, out_features=512),
+            torch.nn.Linear(in_features=512 + 16 * 16 * 2, out_features=512),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=512, out_features=num_classes)
         )
 
     def forward(self, input):
-
-        print('input')
-        print(input.size())
-
         batch_size, channels, frames, height, width = input.size()
+        assert(channels == CHANNELS and frames == FRAMES and height == HEIGHT and width == WIDHT)
 
+        # Swap channels and frames and upsize to 224x224 for stacked hourglass pose estimator
+
+        # SHAPE = (batch_size, frames, channels, height, width)
         joints_input = input.permute(0, 2, 1, 3, 4)
+        # SHAPE = (batch_size, frames, channels, height, width)
         joints_input = torch.nn.functional.interpolate(joints_input, size=[channels, 224, 224])
 
-        print('upscaled')
-        print(joints_input.size())
+        # Estimate joints for each sample in batch (pose estimator is implemented for images so video is already batch)
 
-        joints_list = [self.pose_predictor.estimate_joints(i, flip=True) for i in joints_input]
-        joints_output = torch.Tensor(batch_size, frames, 16, 2)
-        torch.cat(joints_list, dim=0, out=joints_output)
+        # List with tensors of shape: (1, frames, 16, 2)
+        pose_list = [torch.unsqueeze(self.pose_predictor.estimate_joints(i, flip=True), 0) for i in joints_input]
 
-        print('joints_output')
-        print(joints_output.size())
-        joints_output = joints_output.view(size=(batch_size, frames * 16 * 2))
-        print(joints_output.size())
+        pose_cnn_input = torch.Tensor(batch_size, frames, 16, 2)
+        torch.cat(pose_list, dim=0, out=pose_cnn_input)
 
+        # joints_output = joints_output.view(size=(batch_size, frames * 16 * 2))
+
+        pose_cnn_output = self.pose_cnn(pose_cnn_input)
+
+        # Run R(2+1)D on the raw pixel data
         cnn_output = self.r2plus1d_18(input)
 
-        print('cnn_output')
-        print(cnn_output.size())
+        # Combine R(2+1)D and pose information for classifier
+        classifier_input = torch.Tensor(batch_size, 1024)
+        torch.cat([cnn_output, pose_cnn_output], dim=1, out=classifier_input)
 
-        classifier_input = torch.Tensor(batch_size, cnn_output.size()[1] + joints_output.size()[1])
-        torch.cat([cnn_output, joints_output], dim=1, out=classifier_input)
-
-        print('classifier_input')
-        print(classifier_input.size())
         return self.classifier(classifier_input)
