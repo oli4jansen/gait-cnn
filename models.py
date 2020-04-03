@@ -21,9 +21,11 @@ class GaitNet(torch.nn.Module):
 
         self.pose_cnn = torch.nn.Sequential(
             torch.nn.Conv3d(1, 1, 3, padding=1),
+            torch.nn.BatchNorm3d(1),
+            torch.nn.ReLU(),
             torch.nn.AvgPool3d((1, 1, 1)),
             Flatten(),
-            torch.nn.Linear(512, num_classes)
+            torch.nn.Linear(in_features=512, out_features=512)
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
@@ -49,31 +51,23 @@ class GaitNet(torch.nn.Module):
         assert(channels == CHANNELS and frames == FRAMES and height == HEIGHT and width == WIDTH)
 
         # Swap channels and frames and upsize to 224x224 for stacked hourglass pose estimator
-
-        # SHAPE = (batch_size, frames, channels, height, width)
         joints_input = input.permute(0, 2, 1, 3, 4)
-        # SHAPE = (batch_size, frames, channels, height, width)
         joints_input = torch.nn.functional.interpolate(joints_input, size=[channels, 224, 224])
-
         # Estimate joints for each sample in batch (pose estimator is implemented for images so video is already batch)
-
-        # List with tensors of shape: (1, frames, 16, 2)
         pose_list = [torch.unsqueeze(self.pose_predictor.estimate_joints(i, flip=True), 0) for i in joints_input]
 
-        # pose_cnn_input = torch.Tensor(batch_size, frames, 16, 2)
+        # Concat tensors in pose list into tensor again
         pose_cnn_input = torch.cat(pose_list, dim=0)
         # Add an empty channels dimension
         pose_cnn_input = torch.unsqueeze(pose_cnn_input, 1)
 
-        # joints_output = joints_output.view(size=(batch_size, frames * 16 * 2))
-
+        # Run pose CNN on extracted poses
         pose_cnn_output = self.pose_cnn(pose_cnn_input)
 
         # Run R(2+1)D on the raw pixel data
         cnn_output = self.r2plus1d_18(input)
 
         # Combine R(2+1)D and pose information for classifier
-        # classifier_input = torch.Tensor(batch_size, 1024)
         classifier_input = torch.cat([cnn_output, pose_cnn_output], dim=1)
 
         return self.classifier(classifier_input)
