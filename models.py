@@ -53,7 +53,7 @@ class GaitNet(torch.nn.Module):
         print('cnn_output')
         print(cnn_output.size())
 
-        classifier_input = torch.cat(joints_output, cnn_output, dim=2)
+        classifier_input = torch.cat(joints_output, dim=2, out=cnn_output)
         print('classifier_input')
         print(classifier_input.size())
         return self.classifier(classifier_input)
