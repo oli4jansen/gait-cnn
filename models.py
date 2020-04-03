@@ -29,18 +29,31 @@ class GaitNet(torch.nn.Module):
         )
 
     def forward(self, input):
+
         print('input')
         print(input.size())
-        upscaled = torch.nn.functional.interpolate(input, size=224)
+
+        batch_size, channels, frames, height, width = input.size()
+
+        joints_input = input.permute(0, 2, 1, 3, 4)
+        joints_input = torch.nn.functional.interpolate(joints_input, size=[channels, 224, 224])
+
         print('upscaled')
-        print(upscaled.size())
-        joints = self.pose_predictor.estimate_joints(upscaled).view(input.size()[0], input.size()[0][1], -1)
-        print('joints')
-        print(joints.size())
-        cnn_features = self.r2plus1d_18(input)
-        print('cnn_features')
-        print(cnn_features.size())
-        joints_and_cnn = torch.cat(joints, cnn_features, dim=2)
-        print('joints_and_cnn')
-        print(joints_and_cnn.size())
-        return self.classifier(joints_and_cnn)
+        print(joints_input.size())
+
+        joints_list = [self.pose_predictor.estimate_joints(i) for i in joints_input]
+        joints_output = torch.Tensor(batch_size, frames, channels, 16, 2)
+        torch.cat(joints_list, out=joints_output)
+
+        print('joints_output')
+        print(joints_output.size())
+
+        cnn_output = self.r2plus1d_18(input)
+
+        print('cnn_output')
+        print(cnn_output.size())
+
+        classifier_input = torch.cat(joints_output, cnn_output, dim=2)
+        print('classifier_input')
+        print(classifier_input.size())
+        return self.classifier(classifier_input)
