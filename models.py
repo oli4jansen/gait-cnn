@@ -62,6 +62,7 @@ class GaitNet(torch.nn.Module):
 
         # Swap channels and frames and upsize to 224x224 for stacked hourglass pose estimator
         joints_input = input.permute(0, 2, 1, 3, 4)
+        # TODO: check torch.nn.Upsample
         joints_input = torch.nn.functional.interpolate(joints_input, size=[channels, 224, 224])
         # Estimate joints for each sample in batch (pose estimator is implemented for images so video is already batch)
         pose_list = [torch.unsqueeze(self.pose_predictor.estimate_joints(i, flip=True), 0) for i in joints_input]

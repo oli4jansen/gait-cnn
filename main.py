@@ -21,9 +21,9 @@ def train(model, dataset):
 
     weight = torch.Tensor(dataset.dataset.class_counts)
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=1.0)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    for epoch in range(10):
+    for epoch in range(15):
         logging.info(f'epoch: {epoch}')
 
         for i, (inputs, labels) in enumerate(dataloader):
