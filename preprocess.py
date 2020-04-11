@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 import glob
@@ -23,7 +24,9 @@ from utils import group_sequence
 
 EXPECTED_FPS = 24
 
-coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
+parser = argparse.ArgumentParser(description='GaitNet-Preprocess')
+parser.add_argument('--input', type=str, default='data/0-full')
+parser.add_argument('--output', type=str, default='data/0-full-clips')
 
 class Preprocessor():
     def __init__(self, output_dir, num_frames_per_clip=16, distance_between_clips=-4):
@@ -288,5 +291,12 @@ class Preprocessor():
         joints_frames = self.pose_predictor.estimate_joints(frames, flip=True)
         return [joints[MPII_JOINT_NAMES.index('pelvis')] for joints in joints_frames]
 
+def main(args):
+    pp = Preprocessor(output_dir=args.output)
+    pp.preprocess_dir(args.input)
+
 if __name__ == '__main__':
-    Preprocessor(output_dir='data/synth-cmu-clips').preprocess_dir('data/synth-cmu')
+    coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
+
+    args = parser.parse_args()
+    main(args)

@@ -1,14 +1,5 @@
-import glob
 import subprocess
-import os
-import cv2
-import torch
-from PIL import Image
-
-from torch.utils.data import Dataset
 from torchvision import transforms
-from torchvision.transforms.functional import to_tensor
-
 
 
 def video_to_images(video_file, image_folder):

@@ -3,12 +3,13 @@ import torch
 from torch.utils.data import DataLoader
 import argparse
 import logging
+from time import time
 
 from dataset import GaitDataset
 from models import GaitNet
 
 parser = argparse.ArgumentParser(description='GaitNet')
-parser.add_argument('--dataset', type=str, default='data/synth-cmu-clips')
+parser.add_argument('--dataset', type=str, default='data/0-full-clips')
 
 
 def train(model, dataset):
@@ -23,8 +24,9 @@ def train(model, dataset):
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    for epoch in range(15):
-        logging.info(f'epoch: {epoch}')
+    NUM_EPOCHS = 15
+    for epoch in range(NUM_EPOCHS):
+        logging.info(f'epoch: {epoch + 1}/{NUM_EPOCHS}')
 
         for i, (inputs, labels) in enumerate(dataloader):
             logging.info(f'batch {i} of {len(dataloader)}')
@@ -41,10 +43,6 @@ def train(model, dataset):
             logging.info(f'loss is {loss}')
 
     logging.info('\ntraining finished')
-
-    torch.save(model.state_dict(), 'checkpoint.pt')
-
-    logging.info('checkpoint saved')
 
 def test(model, dataset):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24)
@@ -79,6 +77,11 @@ def main(args):
 
     train(model=model, dataset=train_set)
     test(model=model, dataset=test_set)
+
+    checkpoint_name = f'checkpoint_{args.dataset}_{int(time())}.pt'
+    torch.save(model.state_dict(), checkpoint_name)
+
+    logging.info('checkpoint saved')
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
