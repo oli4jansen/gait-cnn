@@ -34,7 +34,7 @@ class Preprocessor():
             device_name = torch.cuda.get_device_name(torch.cuda.current_device())
             logging.info('using %s', device_name)
             # Force CUDA tensors by default
-            # torch.set_default_tensor_type('torch.cuda.FloatTensor')
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
             self.device = 'cuda'
         else:
             logging.info('using CPU, limiting threads')
@@ -58,6 +58,7 @@ class Preprocessor():
 
         self.pose_model = hg2(pretrained=True)
         self.pose_predictor = HumanPosePredictor(self.pose_model, device=self.device)
+
 
     def preprocess_dir(self, input_dir):
         logging.info(f'preprocessing {input_dir} -> {self.output_dir}')
@@ -141,7 +142,7 @@ class Preprocessor():
             img = interpolate(img, size=112)
             img = torch.squeeze(img, 0)
 
-            img = np.clip(img.numpy() * 255, 0, 255)
+            img = np.clip(img.to('cpu').numpy() * 255, 0, 255)
             img = img.astype(np.uint8)
             img = img.transpose(1, 2, 0)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
