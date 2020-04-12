@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import shutil
 import glob
@@ -53,11 +54,13 @@ class Preprocessor():
         self.detector = YOLOv3(
             device=self.device, img_size=608, person_detector=True, video=True, return_dict=True
         )
+        self.detector.conf_thres = 0.6
 
         self.tracker = Sort()
 
         self.pose_model = hg2(pretrained=True)
         self.pose_predictor = HumanPosePredictor(self.pose_model, device=self.device)
+        self.errors = []
 
 
     def preprocess_dir(self, input_dir):
@@ -72,7 +75,7 @@ class Preprocessor():
         logging.info(f'{len(videos)} video(s) found')
 
         for idx, video_path in enumerate(videos):
-            logging.info(f'preprocessing video {idx + 1}/{len(videos)}')
+            logging.info(f'preprocessing video {idx + 1}/{len(videos)} ({video_path})')
             self.preprocess_video(video_path)
 
     def preprocess_video(self, video_path):
@@ -81,8 +84,8 @@ class Preprocessor():
         people = self.find_people(vframes)
 
         if people is None or len(people) is 0:
-            logging.warming(f'no people found in video {video_path}')
-            return
+            logging.warning(f'no people found in video {video_path}')
+            self.errors.append(video_path)
 
         # Find the most common person of all people
         person = self.find_most_common_person(people)
@@ -181,6 +184,10 @@ class Preprocessor():
         # Clear frames directory
         shutil.rmtree(frames_dir)
         logging.info(f'saved {len(clips)} clips')
+
+        with open('preprocessing-errors.json', 'w+') as file:
+            json.dump(self.errors, file)
+
 
     def square_crop(self, frame, center_x, center_y, size):
         """ Input frame must be of shape (channels, width, height) """
