@@ -1,4 +1,5 @@
 import json
+import os
 
 import coloredlogs
 import torch
@@ -87,7 +88,7 @@ def main(args):
 
     train(model=model, dataset=train_set)
 
-    checkpoint_name = f'checkpoint_{args.dataset}_{int(time())}.pt'
+    checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}.pt'
     torch.save(model.state_dict(), checkpoint_name)
     logging.info('checkpoint saved')
 
