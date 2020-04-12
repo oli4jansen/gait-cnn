@@ -78,6 +78,10 @@ class Preprocessor():
             logging.info(f'preprocessing video {idx + 1}/{len(videos)} ({video_path})')
             self.preprocess_video(video_path)
 
+        with open('preprocessing-errors.json', 'w+') as file:
+            json.dump(self.errors, file)
+
+
     def preprocess_video(self, video_path):
 
         vframes = self.read_video(video_path)
@@ -86,6 +90,7 @@ class Preprocessor():
         if people is None or len(people) is 0:
             logging.warning(f'no people found in video {video_path}')
             self.errors.append(video_path)
+            return
 
         # Find the most common person of all people
         person = self.find_most_common_person(people)
@@ -184,9 +189,6 @@ class Preprocessor():
         # Clear frames directory
         shutil.rmtree(frames_dir)
         logging.info(f'saved {len(clips)} clips')
-
-        with open('preprocessing-errors.json', 'w+') as file:
-            json.dump(self.errors, file)
 
 
     def square_crop(self, frame, center_x, center_y, size):
