@@ -47,7 +47,7 @@ def train(model, dataset):
 
             # Print statistics
             logging.info(f'loss is {loss}')
-            losses[f'epoch-{epoch}'][i] = loss
+            losses[f'epoch-{epoch}'][i] = loss.item()
 
     with open('losses.json', 'w+') as file:
         json.dump(losses, file)
