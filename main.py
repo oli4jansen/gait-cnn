@@ -1,3 +1,5 @@
+import json
+
 import coloredlogs
 import torch
 from torch.utils.data import DataLoader
@@ -24,9 +26,12 @@ def train(model, dataset):
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
+    losses = dict()
+
     NUM_EPOCHS = 15
     for epoch in range(NUM_EPOCHS):
         logging.info(f'epoch: {epoch + 1}/{NUM_EPOCHS}')
+        losses[f'epoch-{epoch}'] = dict()
 
         for i, (inputs, labels) in enumerate(dataloader):
             logging.info(f'batch {i} of {len(dataloader)}')
@@ -41,8 +46,13 @@ def train(model, dataset):
 
             # Print statistics
             logging.info(f'loss is {loss}')
+            losses[f'epoch-{epoch}'][i] = loss
+
+    with open('losses.json', 'w+') as file:
+        json.dump(dict(vars(args)), file)
 
     logging.info('\ntraining finished')
+
 
 def test(model, dataset):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24)
