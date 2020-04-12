@@ -86,12 +86,12 @@ def main(args):
     model.to(device)
 
     train(model=model, dataset=train_set)
-    test(model=model, dataset=test_set)
 
     checkpoint_name = f'checkpoint_{args.dataset}_{int(time())}.pt'
     torch.save(model.state_dict(), checkpoint_name)
-
     logging.info('checkpoint saved')
+
+    test(model=model, dataset=test_set)
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
