@@ -72,7 +72,7 @@ class Preprocessor():
         logging.info(f'{len(videos)} video(s) found')
 
         for idx, video_path in enumerate(videos):
-            logging(f'preprocessing video {idx + 1}/{len(videos)}')
+            logging.info(f'preprocessing video {idx + 1}/{len(videos)}')
             self.preprocess_video(video_path)
 
     def preprocess_video(self, video_path):
