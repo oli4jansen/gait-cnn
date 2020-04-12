@@ -54,7 +54,6 @@ class Preprocessor():
         self.detector = YOLOv3(
             device=self.device, img_size=608, person_detector=True, video=True, return_dict=True
         )
-        self.detector.conf_thres = 0.6
 
         self.tracker = Sort()
 
@@ -94,6 +93,11 @@ class Preprocessor():
 
         # Find the most common person of all people
         person = self.find_most_common_person(people)
+
+        if len(person['frames']) < 16:
+            logging.warning(f'person appeared too short in {video_path}')
+            self.errors.append(video_path)
+            return
 
         # Slice only frames with the person in it
         vframes = vframes[person['frames'][0]:person['frames'][-1] + 1]
