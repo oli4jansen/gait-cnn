@@ -71,7 +71,8 @@ class Preprocessor():
         videos = glob.glob(os.path.join(input_dir, '*'))
         logging.info(f'{len(videos)} video(s) found')
 
-        for video_path in videos:
+        for idx, video_path in enumerate(videos):
+            logging(f'preprocessing video {idx + 1}/{len(videos)}')
             self.preprocess_video(video_path)
 
     def preprocess_video(self, video_path):
