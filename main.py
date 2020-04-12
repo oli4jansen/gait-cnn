@@ -35,7 +35,7 @@ def train(model, dataset):
         losses[f'epoch-{epoch}'] = dict()
 
         for i, (inputs, labels) in enumerate(dataloader):
-            logging.info(f'batch {i} of {len(dataloader)}')
+            logging.info(f'batch {i + 1} of {len(dataloader)}')
 
             # Zero the parameter gradients
             optimizer.zero_grad()
@@ -50,7 +50,7 @@ def train(model, dataset):
             losses[f'epoch-{epoch}'][i] = loss
 
     with open('losses.json', 'w+') as file:
-        json.dump(dict(vars(args)), file)
+        json.dump(losses, file)
 
     logging.info('\ntraining finished')
 
