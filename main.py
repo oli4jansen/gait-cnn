@@ -9,7 +9,7 @@ from dataset import GaitDataset
 from models import GaitNet
 
 parser = argparse.ArgumentParser(description='GaitNet')
-parser.add_argument('--dataset', type=str, default='data/0-full-clips')
+parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 
 
 def train(model, dataset):
