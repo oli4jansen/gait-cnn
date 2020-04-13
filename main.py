@@ -17,10 +17,11 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--epochs', type=int, default=15)
+parser.add_argument('--lr', type=int, default=0.0001)
+parser.add_argument('--epochs', type=int, default=5)
 
 
-def train(model, dataset, epochs):
+def train(model, dataset, epochs, lr=0.0001):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
@@ -28,7 +29,7 @@ def train(model, dataset, epochs):
 
     weight = torch.Tensor(dataset.dataset.class_counts)
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-7, weight_decay=1e-7)
 
     losses = dict()
 
