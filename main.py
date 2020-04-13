@@ -4,6 +4,7 @@ import os
 
 import coloredlogs
 import torch
+import numpy as np
 from torch.utils.data import DataLoader
 import argparse
 import logging
@@ -18,14 +19,15 @@ parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 
 def train_kfold(model, dataset, k=5, epochs=15):
     accuracies = []
+
+    folds = np.array_split(range(0, len(dataset)), k)
+
     for fold in range(0, k):
-        train_size = int((k - 1 / k) * len(dataset))
-        test_size = len(dataset) - train_size
+        logging.info(f'fold {fold + 1}')
 
-        logging.info(f'fold {fold + 1} ({train_size} train, {test_size} test)')
-
-        train_set = torch.utils.data.Subset(dataset, indices=range(0, train_size))
-        test_set = torch.utils.data.Subset(dataset, indices=range(train_size, train_size + test_size))
+        train_folds = [f for i, f in enumerate(folds) if i != fold]
+        train_set = torch.utils.data.Subset(dataset, indices=list(np.itertools.chain.from_iterable(train_folds)))
+        test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         train_losses = train(model=model, dataset=train_set, epochs=epochs)
         test_loss, test_accuracy = test(model=model, dataset=test_set)
@@ -57,7 +59,7 @@ def train(model, dataset, epochs):
         losses[f'epoch-{epoch}'] = dict()
 
         for i, (inputs, labels) in enumerate(dataloader):
-            logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1} of {len(dataloader)}')
+            logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1}/{len(dataloader)}')
 
             # Zero the parameter gradients
             optimizer.zero_grad()
