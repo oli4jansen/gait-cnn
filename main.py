@@ -1,3 +1,4 @@
+import itertools
 import json
 import math
 import os
@@ -26,7 +27,7 @@ def train_kfold(model, dataset, k=5, epochs=15):
         logging.info(f'fold {fold + 1}')
 
         train_folds = [f for i, f in enumerate(folds) if i != fold]
-        train_set = torch.utils.data.Subset(dataset, indices=list(np.itertools.chain.from_iterable(train_folds)))
+        train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         train_losses = train(model=model, dataset=train_set, epochs=epochs)
