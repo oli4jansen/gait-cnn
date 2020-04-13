@@ -70,7 +70,7 @@ def test(model, dataset):
     test_loss /= len(dataloader)
 
     logging.info(f'test loss: {test_loss}')
-    logging.info(f'accuracy: {100. * correct / len(dataloader.dataset)}')
+    logging.info(f'test accuracy: {100. * correct / len(dataloader.dataset)}')
 
     return test_loss, 100. * correct / len(dataloader.dataset)
 
@@ -87,6 +87,7 @@ def main(args):
     fold_accuracies = []
 
     for fold in range(0, args.k):
+        logging.info(f'starting with fold {fold + 1}')
         model = GaitNet(num_classes=len(dataset.classes))
         model.to(device)
 
