@@ -16,32 +16,8 @@ from models import GaitNet
 
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
-
-
-def train_kfold(model, dataset, k=5, epochs=15):
-    accuracies = []
-
-    folds = np.array_split(range(0, len(dataset)), k)
-
-    for fold in range(0, k):
-        logging.info(f'fold {fold + 1}')
-
-        train_folds = [f for i, f in enumerate(folds) if i != fold]
-        train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
-        test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
-
-        train_losses = train(model=model, dataset=train_set, epochs=epochs)
-        test_loss, test_accuracy = test(model=model, dataset=test_set)
-
-        with open(f'train_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(train_losses, file)
-
-        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
-
-        accuracies.append(test_accuracy)
-
-    logging.info(f'{k}-fold mean accuracy: {mean(accuracies)}')
+parser.add_argument('--k', type=int, default=5)
+parser.add_argument('--epochs', type=int, default=15)
 
 
 def train(model, dataset, epochs):
@@ -90,9 +66,6 @@ def test(model, dataset):
             test_loss += torch.nn.functional.cross_entropy(outputs, labels).item()
             preds = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += preds.eq(labels.view_as(preds)).sum().item()
-            logging.info(labels.view_as(preds))
-            logging.info(labels)
-            logging.info(preds)
 
     test_loss /= len(dataloader)
 
@@ -107,18 +80,36 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     dataset = GaitDataset(args.dataset)
+    folds = np.array_split(range(0, len(dataset)), args.k)
 
-    model = GaitNet(num_classes=len(dataset.classes))
-    model.to(device)
+    fold_accuracies = []
 
-    train_kfold(model=model, dataset=dataset, k=5)
-    # train(model=model, dataset=train_set)
+    for fold in range(0, args.k):
+        logging.info(f'fold {fold + 1}')
 
-    checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}.pt'
-    torch.save(model.state_dict(), checkpoint_name)
-    logging.info('checkpoint saved')
+        model = GaitNet(num_classes=len(dataset.classes))
+        model.to(device)
 
-    # test(model=model, dataset=test_set)
+        train_folds = [f for i, f in enumerate(folds) if i != fold]
+        train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
+        test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
+
+        train_losses = train(model=model, dataset=train_set, epochs=args.epochs)
+        test_loss, test_accuracy = test(model=model, dataset=test_set)
+
+        with open(f'train_fold_{fold + 1}.json', 'w+') as file:
+            json.dump(train_losses, file)
+
+        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
+            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
+
+        checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_fold{fold + 1}.pt'
+        torch.save(model.state_dict(), checkpoint_name)
+        logging.info(f'fold {fold + 1} checkpoint saved')
+
+        fold_accuracies.append(test_accuracy)
+
+    logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
