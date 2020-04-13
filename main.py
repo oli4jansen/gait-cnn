@@ -50,7 +50,7 @@ def train(model, dataset, epochs):
             logging.info(f'loss is {loss}')
             losses[f'epoch-{epoch}'][i] = loss.item()
 
-    logging.info('\ntraining finished')
+    logging.info('training finished')
 
     return losses
 
@@ -81,12 +81,12 @@ def main(args):
 
     dataset = GaitDataset(args.dataset)
     folds = np.array_split(range(0, len(dataset)), args.k)
+    logging.info(f'dataset has {len(dataset)} items')
+    logging.info(f'folds will be of length {[len(fold) for fold in folds]}')
 
     fold_accuracies = []
 
     for fold in range(0, args.k):
-        logging.info(f'fold {fold + 1}')
-
         model = GaitNet(num_classes=len(dataset.classes))
         model.to(device)
 
