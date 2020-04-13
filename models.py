@@ -20,8 +20,8 @@ class GaitNet(torch.nn.Module):
         self.pose_predictor = HumanPosePredictor(self.pose_model)
 
         self.pose_cnn = torch.nn.Sequential(
-            torchvision.models.video.resnet.Conv2Plus1D(1, 64, 32, padding=2),
-            torchvision.models.video.resnet.Conv2Plus1D(64, 16, 32, padding=1),
+            torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
+            torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
             torch.nn.MaxPool3d((3, 3, 3)),
             Flatten(),
             torch.nn.Linear(in_features=576, out_features=256)

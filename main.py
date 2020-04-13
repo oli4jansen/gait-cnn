@@ -1,4 +1,5 @@
 import json
+import math
 import os
 
 import coloredlogs
@@ -6,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 import argparse
 import logging
-from time import time
+from statistics import mean
 
 from dataset import GaitDataset
 from models import GaitNet
@@ -15,10 +16,33 @@ parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 
 
-def train(model, dataset):
-    # TODO: use dataset_train.classes and dataset_train.class_counts for weighted sampling in data loader
-    batch_size = 24
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+def train_kfold(model, dataset, k=5, epochs=15):
+    accuracies = []
+    for fold in range(0, k):
+        train_size = int((k - 1 / k) * len(dataset))
+        test_size = len(dataset) - train_size
+
+        logging.info(f'fold {fold + 1} ({train_size} train, {test_size} test)')
+
+        train_set = torch.utils.data.Subset(dataset, indices=range(0, train_size))
+        test_set = torch.utils.data.Subset(dataset, indices=range(train_size, train_size + test_size))
+
+        train_losses = train(model=model, dataset=train_set, epochs=epochs)
+        test_loss, test_accuracy = test(model=model, dataset=test_set)
+
+        with open(f'train_fold_{fold + 1}.json', 'w+') as file:
+            json.dump(train_losses, file)
+
+        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
+            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
+
+        accuracies.append(test_accuracy)
+
+    logging.info(f'{k}-fold mean accuracy: {mean(accuracies)}')
+
+
+def train(model, dataset, epochs):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
@@ -29,13 +53,11 @@ def train(model, dataset):
 
     losses = dict()
 
-    NUM_EPOCHS = 15
-    for epoch in range(NUM_EPOCHS):
-        logging.info(f'epoch: {epoch + 1}/{NUM_EPOCHS}')
+    for epoch in range(epochs):
         losses[f'epoch-{epoch}'] = dict()
 
         for i, (inputs, labels) in enumerate(dataloader):
-            logging.info(f'batch {i + 1} of {len(dataloader)}')
+            logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1} of {len(dataloader)}')
 
             # Zero the parameter gradients
             optimizer.zero_grad()
@@ -49,11 +71,9 @@ def train(model, dataset):
             logging.info(f'loss is {loss}')
             losses[f'epoch-{epoch}'][i] = loss.item()
 
-    with open('losses.json', 'w+') as file:
-        json.dump(losses, file)
-
     logging.info('\ntraining finished')
 
+    return losses
 
 def test(model, dataset):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24)
@@ -63,36 +83,39 @@ def test(model, dataset):
     correct = 0
     with torch.no_grad():
         for inputs, labels in dataloader:
-            output = model(inputs)
-            test_loss += torch.nn.functional.cross_entropy(output, labels).item()
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(labels.view_as(pred)).sum().item()
+            outputs = model(inputs)
+            test_loss += torch.nn.functional.cross_entropy(outputs, labels).item()
+            preds = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            correct += preds.eq(labels.view_as(preds)).sum().item()
+            logging.info(labels.view_as(preds))
+            logging.info(labels)
+            logging.info(preds)
 
-    test_loss /= len(dataloader.dataset)
+    test_loss /= len(dataloader)
 
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(dataloader.dataset),
-        100. * correct / len(dataloader.dataset)))
+    logging.info(f'test loss: {test_loss}')
+    logging.info(f'accuracy: {100. * correct / len(dataloader.dataset)}')
+
+    return test_loss, 100. * correct / len(dataloader.dataset)
+
 
 def main(args):
     init()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     dataset = GaitDataset(args.dataset)
-    train_size = int(0.8 * len(dataset))
-    test_size = len(dataset) - train_size
-    train_set, test_set = torch.utils.data.random_split(dataset, [train_size, test_size])
 
     model = GaitNet(num_classes=len(dataset.classes))
     model.to(device)
 
-    train(model=model, dataset=train_set)
+    train_kfold(model=model, dataset=dataset, k=5)
+    # train(model=model, dataset=train_set)
 
     checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}.pt'
     torch.save(model.state_dict(), checkpoint_name)
     logging.info('checkpoint saved')
 
-    test(model=model, dataset=test_set)
+    # test(model=model, dataset=test_set)
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
