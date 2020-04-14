@@ -8,10 +8,6 @@ CHANNELS = 3
 HEIGHT = 112
 WIDTH = 112
 
-class Flatten(torch.nn.Module):
-    def forward(self, input):
-        return input.flatten(start_dim=1)
-
 class GaitNet(torch.nn.Module):
     def __init__(self, num_classes=15):
         super(GaitNet, self).__init__()
@@ -23,7 +19,7 @@ class GaitNet(torch.nn.Module):
             torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
             torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
             torch.nn.MaxPool3d((3, 3, 3)),
-            Flatten(),
+            torch.nn.Flatten(startdim=1),
             torch.nn.Linear(in_features=576, out_features=256)
         )
 
