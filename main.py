@@ -1,6 +1,5 @@
 import itertools
 import json
-import math
 import os
 
 import coloredlogs
@@ -13,6 +12,7 @@ from statistics import mean
 
 from dataset import GaitDataset
 from models import GaitNet
+
 
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
@@ -27,8 +27,11 @@ def train(model, dataset, epochs, lr=0.0001):
     logging.info(str(len(dataset)) + ' clips in train dataset')
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
 
+    # Initialise cross entropy with weights as dataset is not balanced perfectly
     weight = torch.Tensor(dataset.dataset.class_counts)
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
+
+    # Optimizer params have been found by trail-and-error on a smaller dataset
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-7, weight_decay=1e-7)
 
     losses = dict()
@@ -47,7 +50,7 @@ def train(model, dataset, epochs, lr=0.0001):
             loss.backward()
             optimizer.step()
 
-            # Print statistics
+            # Keep track of losses for later debugging
             logging.info(f'loss is {loss}')
             losses[f'epoch-{epoch}'][i] = loss.item()
 
@@ -57,6 +60,7 @@ def train(model, dataset, epochs, lr=0.0001):
 
 def test(model, dataset):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24)
+    logging.info('starting test')
 
     model.eval()
     test_loss = 0
@@ -77,41 +81,50 @@ def test(model, dataset):
 
 
 def main(args):
-    init()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     dataset = GaitDataset(args.dataset)
+
+    # Split dataset into folds for k-fold cross validation
     folds = np.array_split(range(0, len(dataset)), args.k)
+
     logging.info(f'dataset has {len(dataset)} items')
-    logging.info(f'folds will be of length {[len(fold) for fold in folds]}')
+    logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
 
     fold_accuracies = []
 
     for fold in range(0, args.k):
-        logging.info(f'starting with fold {fold + 1}')
+        logging.info(f'starting with fold {fold + 1}/{args.k}')
+
+        # Init new model
         model = GaitNet(num_classes=len(dataset.classes))
         model.to(device)
 
+        # The current fold index will be the test set, others will be train set
         train_folds = [f for i, f in enumerate(folds) if i != fold]
         train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
+        # Train model and save losses to JSON file
         train_losses = train(model=model, dataset=train_set, epochs=args.epochs)
-        test_loss, test_accuracy = test(model=model, dataset=test_set)
-
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
             json.dump(train_losses, file)
 
-        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
-
+        # Save checkpoint for this fold
         checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_fold{fold + 1}.pt'
         torch.save(model.state_dict(), checkpoint_name)
         logging.info(f'fold {fold + 1} checkpoint saved')
 
+        # Test model and save loss and accuracy to JSON file
+        test_loss, test_accuracy = test(model=model, dataset=test_set)
+        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
+            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
+
         fold_accuracies.append(test_accuracy)
 
+    # Report mean accuracy of all folds
     logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
+
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
@@ -127,6 +140,8 @@ def init():
         # Force CUDA tensors by default
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
+
 if __name__ == '__main__':
+    init()
     args = parser.parse_args()
     main(args)

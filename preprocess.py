@@ -20,7 +20,6 @@ from stacked_hourglass import HumanPosePredictor, hg2
 from stacked_hourglass.datasets.mpii import MPII_JOINT_NAMES
 
 from sort import Sort
-from utils import group_sequence
 
 
 EXPECTED_FPS = 24
@@ -305,6 +304,15 @@ class Preprocessor():
     def find_pelvis(self, frames):
         joints_frames = self.pose_predictor.estimate_joints(frames, flip=True)
         return [joints[MPII_JOINT_NAMES.index('pelvis')] for joints in joints_frames]
+
+def group_sequence(lst):
+    res = [[lst[0]]]
+    for i in range(1, len(lst)):
+        if lst[i - 1] + 1 == lst[i]:
+            res[-1].append(lst[i])
+        else:
+            res.append([lst[i]])
+    return res
 
 def main(args):
     pp = Preprocessor(output_dir=args.output)

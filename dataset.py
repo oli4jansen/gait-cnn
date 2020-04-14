@@ -41,14 +41,14 @@ class GaitDataset(VisionDataset):
         return vframes, class_id
 
 
-def parse_synth_folder(dir, extensions=None):
-    """ Function parses SYDAMO folders for Dataset creation """
+def parse_synth_folder(dir, extensions=['mp4']):
+    """ Parses SYDAMO folders for GaitDataset creation """
 
     videos = []
     class_to_id = dict()
     class_counts = []
-    dir = os.path.expanduser(dir)
 
+    dir = os.path.expanduser(dir)
     file_list = []
     if extensions is None:
         file_list += glob(os.path.join(dir, '*'))
@@ -60,7 +60,7 @@ def parse_synth_folder(dir, extensions=None):
         if os.path.isdir(path):
             continue
         filename = os.path.basename(path)
-        # Extract class from filename
+        # Extract class from filename, this is very specific code
         _class = '_'.join(filename.split('_')[1:-2])
         if _class not in class_to_id:
             class_id = len(class_to_id)
@@ -83,9 +83,8 @@ def random_horizontal_flip(vid):
 
 
 def resize(vid):
-    size = (112,112)
-    # NOTE: using bilinear interpolation because we don't work on minibatches
-    # at this level
+    size = (112, 112)
+    # NOTE: using bilinear interpolation because we don't work on minibatches at this level
     scale = None
     if isinstance(size, int):
         scale = float(size) / min(vid.shape[-2:])
@@ -99,6 +98,7 @@ def to_normalized_float_tensor(vid):
 
 
 def normalize(vid):
+    # Normalization equals Kinetics dataset
     mean = [0.43216, 0.394666, 0.37645]
     std = [0.22803, 0.22145, 0.216989]
     shape = (-1,) + (1,) * (vid.dim() - 1)

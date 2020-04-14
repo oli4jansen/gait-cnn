@@ -28,7 +28,7 @@ class GaitNet(torch.nn.Module):
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
-        # Simulate identity with empty sequential
+        # Simulate identity with empty sequential on last fully-connected layer
         self.r2plus1d_18.fc = torch.nn.Sequential()
 
         # Freeze all pretrained params
