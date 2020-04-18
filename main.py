@@ -17,11 +17,11 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=int, default=0.0001)
-parser.add_argument('--epochs', type=int, default=5)
+parser.add_argument('--lr', type=int, default=0.000025)
+parser.add_argument('--epochs', type=int, default=10)
 
 
-def train(model, dataset, epochs, lr=0.0001):
+def train(model, dataset, epochs, lr):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
@@ -32,7 +32,7 @@ def train(model, dataset, epochs, lr=0.0001):
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
     # Optimizer params have been found by trail-and-error on a smaller dataset
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, eps=1e-7, weight_decay=1e-7)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-12)
 
     losses = dict()
 
@@ -106,7 +106,7 @@ def main(args):
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         # Train model and save losses to JSON file
-        train_losses = train(model=model, dataset=train_set, epochs=args.epochs)
+        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr)
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
             json.dump(train_losses, file)
 
@@ -125,6 +125,14 @@ def main(args):
     # Report mean accuracy of all folds
     logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
+# def get_n_params(model):
+#     pp=0
+#     for p in list(model.parameters()):
+#         nn=1
+#         for s in list(p.size()):
+#             nn = nn*s
+#         pp += nn
+#     return pp
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')

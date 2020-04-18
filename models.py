@@ -8,9 +8,6 @@ CHANNELS = 3
 HEIGHT = 112
 WIDTH = 112
 
-class Flatten(torch.nn.Module):
-    def forward(self, input):
-        return input.flatten(start_dim=1)
 
 class GaitNet(torch.nn.Module):
     def __init__(self, num_classes=15):
@@ -20,11 +17,11 @@ class GaitNet(torch.nn.Module):
         self.pose_predictor = HumanPosePredictor(self.pose_model)
 
         self.pose_cnn = torch.nn.Sequential(
-            torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
-            torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
-            torch.nn.MaxPool3d((3, 3, 3)),
-            Flatten(),
-            torch.nn.Linear(in_features=576, out_features=256)
+            torchvision.models.video.resnet.Conv2Plus1D(1, 8, 16, padding=2),
+            torchvision.models.video.resnet.Conv2Plus1D(8, 4, 8),
+            torch.nn.MaxPool3d((2, 2, 2)),
+            torch.nn.Flatten(start_dim=1),
+            torch.nn.Linear(in_features=648, out_features=num_classes),
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
@@ -40,9 +37,9 @@ class GaitNet(torch.nn.Module):
             param.requires_grad = False
 
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(in_features=512 + 256, out_features=512),
+            torch.nn.Linear(in_features=512 + num_classes, out_features=64),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=512, out_features=num_classes)
+            torch.nn.Linear(in_features=64, out_features=num_classes)
         )
 
     def forward(self, input):
