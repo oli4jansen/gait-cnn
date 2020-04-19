@@ -17,7 +17,7 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=int, default=0.000025)
+parser.add_argument('--lr', type=int, default=0.00005)
 parser.add_argument('--epochs', type=int, default=10)
 
 
