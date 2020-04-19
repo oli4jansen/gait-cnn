@@ -17,7 +17,7 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=int, default=0.00005)
+parser.add_argument('--lr', type=int, default=0.00001)
 parser.add_argument('--epochs', type=int, default=10)
 
 
@@ -32,7 +32,7 @@ def train(model, dataset, epochs, lr):
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
     # Optimizer params have been found by trail-and-error on a smaller dataset
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-12)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     losses = dict()
 
