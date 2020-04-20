@@ -28,29 +28,37 @@ class GaitNet(torch.nn.Module):
         )
 
         self.pose_cnn = torch.nn.Sequential(
-            torch.nn.Conv3d(1, 32, kernel_size=(1, 3, 3),
+            torch.nn.Conv3d(1, 16, kernel_size=(1, 3, 3),
                             padding=(0, 0, 1), bias=False),
 
-            torch.nn.Conv3d(32, 64, kernel_size=(1, 3, 3),
+            torch.nn.Conv3d(16, 32, kernel_size=(1, 3, 3),
                             padding=(0, 0, 1), bias=False),
 
-            torch.nn.Conv3d(64, 32, kernel_size=(1, 3, 3),
+            torch.nn.Conv3d(32, 16, kernel_size=(1, 3, 3),
                             padding=(0, 0, 1), bias=False),
 
-            torch.nn.BatchNorm3d(32),
+            torch.nn.BatchNorm3d(16),
             torch.nn.ReLU(inplace=True),
 
-            torch.nn.Conv3d(32, 16, kernel_size=(4, 1, 1),
+            torch.nn.Conv3d(16, 16, kernel_size=(6, 1, 1),
                             padding=(1, 0, 0), bias=False),
-
-            torch.nn.Conv3d(16, 16, kernel_size=(5, 1, 1), bias=False),
+            torch.nn.Conv3d(16, 16, kernel_size=(6, 1, 1), bias=False),
+            torch.nn.Conv3d(16, 16, kernel_size=(6, 1, 1), bias=False),
 
             torch.nn.BatchNorm3d(16),
             torch.nn.ReLU(inplace=True),
 
             torch.nn.Flatten(start_dim=1),
-            torch.nn.Linear(in_features=3520, out_features=128),
+            torch.nn.Linear(in_features=960, out_features=128),
         )
+
+        # self.pose_cnn = torch.nn.Sequential(
+        #     torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
+        #     torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
+        #     torch.nn.MaxPool3d((3, 3, 3)),
+        #     Flatten(),
+        #     torch.nn.Linear(in_features=576, out_features=256)
+        # )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
         # Simulate identity with empty sequential on last fully-connected layer
@@ -65,9 +73,9 @@ class GaitNet(torch.nn.Module):
             param.requires_grad = False
 
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(in_features=512 + 128 + 128, out_features=128),
+            torch.nn.Linear(in_features=512 + 128 + 128, out_features=256),
             torch.nn.ReLU(),
-            torch.nn.Linear(in_features=128, out_features=num_classes)
+            torch.nn.Linear(in_features=256, out_features=num_classes)
         )
 
     def forward(self, input):
@@ -85,7 +93,7 @@ class GaitNet(torch.nn.Module):
         pose_cnn_input = torch.cat(pose_list, dim=0)
         # Add an empty channels dimension
         pose_cnn_input = torch.unsqueeze(pose_cnn_input, 1)
-        #
+
         # pose_cnn_input = torch.rand(size=(batch_size, 1, frames, 16, 2))
 
         # Run pose CNN on extracted poses
