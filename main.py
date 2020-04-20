@@ -19,10 +19,11 @@ parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
 parser.add_argument('--lr', type=int, default=1e-5)
 parser.add_argument('--epochs', type=int, default=10)
+parser.add_argument('--bs', type=int, default=6)
 
 
-def train(model, dataset, epochs, lr):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=24, shuffle=True)
+def train(model, dataset, epochs, lr, batch_size):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
     logging.info(str(len(dataloader)) + ' batches in train dataloader')
@@ -58,8 +59,8 @@ def train(model, dataset, epochs, lr):
 
     return losses
 
-def test(model, dataset):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=24)
+def test(model, dataset, batch_size):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
     logging.info('starting test')
 
     model.eval()
@@ -90,6 +91,8 @@ def main(args):
 
     logging.info(f'dataset has {len(dataset)} items')
     logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
+    logging.info(f'learning rate is {args.lr}')
+    logging.info(f'batch size is {args.bs}')
 
     fold_accuracies = []
 
@@ -106,7 +109,7 @@ def main(args):
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         # Train model and save losses to JSON file
-        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr)
+        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr, batch_size=args.bs)
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
             json.dump(train_losses, file)
 
@@ -116,7 +119,7 @@ def main(args):
         logging.info(f'fold {fold + 1} checkpoint saved')
 
         # Test model and save loss and accuracy to JSON file
-        test_loss, test_accuracy = test(model=model, dataset=test_set)
+        test_loss, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
         with open(f'test_fold_{fold + 1}.json', 'w+') as file:
             json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
 
