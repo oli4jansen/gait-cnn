@@ -32,9 +32,9 @@ class GaitNet(torch.nn.Module):
             torchvision.models.video.resnet.Conv2Plus1D(16, 64, 32),
             torchvision.models.video.resnet.Conv2Plus1D(64, 256, 128, stride=2),
             torchvision.models.video.resnet.Conv2Plus1D(256, 64, 128, stride=2),
-            torch.nn.AdaptiveAvgPool3d((2, 2, 2)),
+            torch.nn.AdaptiveMaxPool3d((2, 2, 2)),
             torch.nn.Flatten(start_dim=1),
-            torch.nn.ReLU(inplace=True)
+            torch.nn.Linear(in_features=512, out_features=256)
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
@@ -50,7 +50,7 @@ class GaitNet(torch.nn.Module):
             param.requires_grad = False
 
         self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(in_features=512 + 512, out_features=512),
+            torch.nn.Linear(in_features=512 + 256, out_features=512),
             torch.nn.Dropout(0.1),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=512, out_features=num_classes)
