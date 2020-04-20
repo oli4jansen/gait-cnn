@@ -17,7 +17,7 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=float, default=1e-5)
+parser.add_argument('--lr', type=float, default=2e-5)
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--bs', type=int, default=12)
 
@@ -64,21 +64,21 @@ def test(model, dataset, batch_size):
     logging.info('starting test')
 
     model.eval()
-    test_loss = 0
+    test_losses = []
     correct = 0
     with torch.no_grad():
         for inputs, labels in dataloader:
             outputs = model(inputs)
-            test_loss += torch.nn.functional.cross_entropy(outputs, labels).item()
+            test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
             preds = outputs.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += preds.eq(labels.view_as(preds)).sum().item()
 
-    test_loss /= len(dataloader)
-
-    logging.info(f'test loss: {test_loss}')
+    logging.info(f'avg test loss: {mean(test_losses)}')
+    logging.info(f'min test loss: {min(test_losses)}')
+    logging.info(f'max test loss: {max(test_losses)}')
     logging.info(f'test accuracy: {100. * correct / len(dataloader.dataset)}')
 
-    return test_loss, 100. * correct / len(dataloader.dataset)
+    return test_losses, 100. * correct / len(dataloader.dataset)
 
 
 def main(args):
@@ -119,9 +119,9 @@ def main(args):
         logging.info(f'fold {fold + 1} checkpoint saved')
 
         # Test model and save loss and accuracy to JSON file
-        test_loss, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
+        test_losses, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
         with open(f'test_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(dict({ 'test_loss': test_loss, 'test_accuracy': test_accuracy }), file)
+            json.dump(dict({ 'test_losses': test_losses, 'test_accuracy': test_accuracy }), file)
 
         fold_accuracies.append(test_accuracy)
 

@@ -51,6 +51,7 @@ class GaitNet(torch.nn.Module):
 
         self.classifier = torch.nn.Sequential(
             torch.nn.Linear(in_features=512 + 512, out_features=512),
+            torch.nn.Dropout(0.1),
             torch.nn.ReLU(),
             torch.nn.Linear(in_features=512, out_features=num_classes)
         )
