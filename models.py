@@ -26,7 +26,7 @@ class GaitNet(torch.nn.Module):
         super(GaitNet, self).__init__()
 
         self.pose_model = hg2(pretrained=True)
-        self.pose_model.to('cuda' is torch.cuda.is_available() else 'cpu')
+        self.pose_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.pose_cnn = torch.nn.Sequential(
             torchvision.models.video.resnet.Conv2Plus1D(16, 64, 32),
