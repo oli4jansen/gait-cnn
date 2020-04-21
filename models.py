@@ -29,10 +29,10 @@ class GaitNet(torch.nn.Module):
         self.pose_model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.pose_cnn = torch.nn.Sequential(
-            torchvision.models.video.resnet.Conv2Plus1D(16, 64, 32),
-            torchvision.models.video.resnet.Conv2Plus1D(64, 256, 128, stride=2),
-            torchvision.models.video.resnet.Conv2Plus1D(256, 64, 128, stride=2),
-            torch.nn.AdaptiveMaxPool3d((2, 2, 2)),
+            torchvision.models.video.resnet.Conv2Plus1D(16, 32, 32),
+            torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, stride=2, padding=2),
+            torchvision.models.video.resnet.Conv2Plus1D(16, 16, 16, stride=2, padding=2),
+            torch.nn.MaxPool3d((3, 4, 4)),
             torch.nn.Flatten(start_dim=1),
             torch.nn.Linear(in_features=512, out_features=256)
         )

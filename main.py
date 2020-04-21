@@ -17,12 +17,13 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=float, default=1e-5)
+parser.add_argument('--lr', type=float, default=1e-3)
+parser.add_argument('--decay', type=float, default=0.5)
 parser.add_argument('--epochs', type=int, default=10)
-parser.add_argument('--bs', type=int, default=12)
+parser.add_argument('--bs', type=int, default=36)
 
 
-def train(model, dataset, epochs, lr, batch_size):
+def train(model, dataset, epochs, lr, decay, batch_size):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     logging.info(str(len(dataset)) + ' clips in train dataset')
@@ -32,12 +33,11 @@ def train(model, dataset, epochs, lr, batch_size):
     weight = torch.Tensor(dataset.dataset.class_counts)
     criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-    # Optimizer params have been found by trail-and-error on a smaller dataset
-    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-12, lr=lr)
-
     losses = dict()
 
     for epoch in range(epochs):
+        optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-12, lr=lr * (pow(decay, epoch)))
+
         losses[f'epoch-{epoch}'] = dict()
 
         for i, (inputs, labels) in enumerate(dataloader):
@@ -92,6 +92,7 @@ def main(args):
     logging.info(f'dataset has {len(dataset)} items')
     logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
     logging.info(f'learning rate is {args.lr}')
+    logging.info(f'learning rate decay factor is {args.decay}')
     logging.info(f'batch size is {args.bs}')
 
     fold_accuracies = []
@@ -109,7 +110,7 @@ def main(args):
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         # Train model and save losses to JSON file
-        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr, batch_size=args.bs)
+        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr, decay=args.decay, batch_size=args.bs)
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
             json.dump(train_losses, file)
 
