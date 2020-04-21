@@ -94,7 +94,7 @@ def main(args):
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         # Train model and save losses to JSON file
-        dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+        dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.bs, shuffle=True)
 
         logging.info(str(len(dataset)) + ' clips in train dataset')
         logging.info(str(len(dataloader)) + ' batches in train dataloader')
