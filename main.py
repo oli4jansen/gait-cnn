@@ -13,7 +13,6 @@ from statistics import mean
 from dataset import GaitDataset
 from models import GaitNet
 
-
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
@@ -23,41 +22,26 @@ parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--bs', type=int, default=38)
 
 
-def train(model, dataset, epochs, lr, decay, batch_size):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
-
-    logging.info(str(len(dataset)) + ' clips in train dataset')
-    logging.info(str(len(dataloader)) + ' batches in train dataloader')
-
-    # Initialise cross entropy with weights as dataset is not balanced perfectly
-    weight = torch.Tensor(dataset.dataset.class_counts)
-    criterion = torch.nn.CrossEntropyLoss(weight=weight)
-
+def train_epoch(criterion, epochs, epoch, model, dataloader, lr, decay):
     losses = dict()
 
-    for epoch in range(epochs):
-        optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-10, lr=lr * (pow(decay, epoch)))
+    optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-10, lr=lr * (pow(decay, epoch)))
 
-        losses[f'epoch-{epoch}'] = dict()
+    for i, (inputs, labels) in enumerate(dataloader):
+        logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1}/{len(dataloader)}')
 
-        for i, (inputs, labels) in enumerate(dataloader):
-            logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1}/{len(dataloader)}')
+        # Zero the parameter gradients
+        optimizer.zero_grad()
+        # Forward, calculate loss, backward and optimize
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-            # Zero the parameter gradients
-            optimizer.zero_grad()
-            # Forward, calculate loss, backward and optimize
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+        # Keep track of losses for later debugging
+        logging.info(f'loss is {loss}')
+        losses[i] = loss.item()
 
-            # Keep track of losses for later debugging
-            logging.info(f'loss is {loss}')
-            losses[f'epoch-{epoch}'][i] = loss.item()
-
-    logging.info('training finished')
-
-    return losses
 
 def test(model, dataset, batch_size):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
@@ -110,9 +94,24 @@ def main(args):
         test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
 
         # Train model and save losses to JSON file
-        train_losses = train(model=model, dataset=train_set, epochs=args.epochs, lr=args.lr, decay=args.decay, batch_size=args.bs)
+        dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True)
+
+        logging.info(str(len(dataset)) + ' clips in train dataset')
+        logging.info(str(len(dataloader)) + ' batches in train dataloader')
+
+        # Initialise cross entropy with weights as dataset is not balanced perfectly
+        weight = torch.Tensor(dataset.dataset.class_counts)
+        criterion = torch.nn.CrossEntropyLoss(weight=weight)
+
+        losses = dict()
+        for epoch in range(args.epochs):
+            losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
+                                                         dataloader=dataloader, lr=args.lr, decay=args.decay)
+            losses[f'epoch-{epoch}-test'], accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
+            logging.info(f'test accuracy now at {accuracy}')
+
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(train_losses, file)
+            json.dump(losses, file)
 
         # Save checkpoint for this fold
         checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_fold{fold + 1}.pt'
@@ -122,21 +121,23 @@ def main(args):
         # Test model and save loss and accuracy to JSON file
         test_losses, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
         with open(f'test_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(dict({ 'test_losses': test_losses, 'test_accuracy': test_accuracy }), file)
+            json.dump(dict({'test_losses': test_losses, 'test_accuracy': test_accuracy}), file)
 
         fold_accuracies.append(test_accuracy)
 
     # Report mean accuracy of all folds
     logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
+
 def get_n_params(model):
-    pp=0
+    pp = 0
     for p in list(model.parameters()):
-        nn=1
+        nn = 1
         for s in list(p.size()):
-            nn = nn*s
+            nn = nn * s
         pp += nn
     return pp
+
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
