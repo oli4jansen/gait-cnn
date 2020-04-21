@@ -16,10 +16,10 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--decay', type=float, default=0.75)
-parser.add_argument('--epochs', type=int, default=10)
-parser.add_argument('--bs', type=int, default=38)
+parser.add_argument('--lr', type=float, default=1e-3)
+parser.add_argument('--decay', type=float, default=0.65)
+parser.add_argument('--epochs', type=int, default=7)
+parser.add_argument('--bs', type=int, default=36)
 
 
 def train_epoch(criterion, epochs, epoch, model, dataloader, lr, decay):
@@ -100,7 +100,7 @@ def main(args):
         logging.info(str(len(dataloader)) + ' batches in train dataloader')
 
         # Initialise cross entropy with weights as dataset is not balanced perfectly
-        weight = torch.Tensor(dataset.dataset.class_counts)
+        weight = torch.Tensor(train_set.dataset.class_counts)
         criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
         losses = dict()
