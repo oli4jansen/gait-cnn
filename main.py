@@ -17,10 +17,10 @@ from models import GaitNet
 parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
-parser.add_argument('--lr', type=float, default=1e-3)
-parser.add_argument('--decay', type=float, default=0.5)
+parser.add_argument('--lr', type=float, default=1e-4)
+parser.add_argument('--decay', type=float, default=0.75)
 parser.add_argument('--epochs', type=int, default=10)
-parser.add_argument('--bs', type=int, default=36)
+parser.add_argument('--bs', type=int, default=38)
 
 
 def train(model, dataset, epochs, lr, decay, batch_size):
@@ -36,7 +36,7 @@ def train(model, dataset, epochs, lr, decay, batch_size):
     losses = dict()
 
     for epoch in range(epochs):
-        optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-12, lr=lr * (pow(decay, epoch)))
+        optimizer = torch.optim.Adam(model.parameters(), weight_decay=1e-10, lr=lr * (pow(decay, epoch)))
 
         losses[f'epoch-{epoch}'] = dict()
 
@@ -129,14 +129,14 @@ def main(args):
     # Report mean accuracy of all folds
     logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
-# def get_n_params(model):
-#     pp=0
-#     for p in list(model.parameters()):
-#         nn=1
-#         for s in list(p.size()):
-#             nn = nn*s
-#         pp += nn
-#     return pp
+def get_n_params(model):
+    pp=0
+    for p in list(model.parameters()):
+        nn=1
+        for s in list(p.size()):
+            nn = nn*s
+        pp += nn
+    return pp
 
 def init():
     coloredlogs.install(level='INFO', fmt='> %(asctime)s %(levelname)-8s %(message)s')
