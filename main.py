@@ -17,15 +17,14 @@ parser = argparse.ArgumentParser(description='GaitNet')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
 parser.add_argument('--lr', type=float, default=1e-4)
-parser.add_argument('--decay', type=float, default=0.95)
 parser.add_argument('--epochs', type=int, default=5)
-parser.add_argument('--bs', type=int, default=36)
+parser.add_argument('--bs', type=int, default=24)
 
 
-def train_epoch(criterion, epochs, epoch, model, dataloader, lr, decay):
+def train_epoch(criterion, epochs, epoch, model, dataloader, lr):
     losses = dict()
 
-    optimizer = torch.optim.Adam(model.parameters(), eps=1e-7, weight_decay=1e-7, lr=lr * (pow(decay, epoch)))
+    optimizer = torch.optim.Adam(model.parameters(), eps=1e-7, weight_decay=1e-7, lr=lr)
 
     for i, (inputs, labels) in enumerate(dataloader):
         logging.info(f'epoch {epoch + 1}/{epochs}, batch {i + 1}/{len(dataloader)}')
@@ -76,7 +75,6 @@ def main(args):
     logging.info(f'dataset has {len(dataset)} items')
     logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
     logging.info(f'learning rate is {args.lr}')
-    logging.info(f'learning rate decay factor is {args.decay}')
     logging.info(f'batch size is {args.bs}')
 
     fold_accuracies = []
@@ -106,7 +104,7 @@ def main(args):
         losses = dict()
         for epoch in range(args.epochs):
             losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
-                                                         dataloader=dataloader, lr=args.lr, decay=args.decay)
+                                                         dataloader=dataloader, lr=args.lr)
             losses[f'epoch-{epoch}-test'], accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
             logging.info(f'test accuracy now at {accuracy}')
 
@@ -129,14 +127,32 @@ def main(args):
     logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
 
-def get_n_params(model):
-    pp = 0
-    for p in list(model.parameters()):
-        nn = 1
-        for s in list(p.size()):
-            nn = nn * s
-        pp += nn
-    return pp
+    # Now train full model
+
+    # Init new model
+    model = GaitNet(num_classes=len(dataset.classes))
+    model.to(device)
+
+    # Train model and save losses to JSON file
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True)
+
+    # Initialise cross entropy with weights as dataset is not balanced perfectly
+    weight = torch.Tensor(dataset.class_counts)
+    criterion = torch.nn.CrossEntropyLoss(weight=weight)
+
+    losses = dict()
+    for epoch in range(args.epochs):
+        losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
+                                                     dataloader=dataloader, lr=args.lr)
+        logging.info(f'test accuracy now at {accuracy}')
+
+    with open(f'train_full_model.json', 'w+') as file:
+        json.dump(losses, file)
+
+    # Save checkpoint for this fold
+    checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_full_model.pt'
+    torch.save(model.state_dict(), checkpoint_name)
+    logging.info('full model checkpoint saved')
 
 
 def init():

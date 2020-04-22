@@ -27,15 +27,15 @@ class GaitNet(torch.nn.Module):
 
         self.pose_model = hg2(pretrained=True)
         self.pose_model.to('cuda' if torch.cuda.is_available() else 'cpu')
+        self.pose_predictor = HumanPosePredictor(self.pose_model)
 
-        self.pose_cnn = torch.nn.Sequential(
-            torch.nn.MaxPool3d((2, 4, 4)),
-            torchvision.models.video.resnet.Conv2Plus1D(16, 32, 32, padding=1),
+        self.pose_joints_cnn = torch.nn.Sequential(
+            torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
             torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
             torch.nn.MaxPool3d((3, 3, 3)),
             torch.nn.Flatten(start_dim=1),
             torch.nn.Dropout(0.1),
-            torch.nn.Linear(in_features=800, out_features=256)
+            torch.nn.Linear(in_features=576, out_features=128)
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
@@ -60,39 +60,18 @@ class GaitNet(torch.nn.Module):
     def forward(self, input):
         with torch.no_grad():
             batch_size, channels, frames, height, width = input.size()
-            assert (channels == CHANNELS and frames == FRAMES and height == HEIGHT and width == WIDTH)
 
-            input_1 = input.permute(0, 2, 1, 3, 4)
-            input_2 = torch.nn.functional.interpolate(input_1, size=[channels, 256, 256])
-
-            # input_2 = torch.size([batch_size, frames, channels, height, width])
-
-            normalized_batch = []
-            for images in input_2:
-                # images = torch.size([frames, channels, height, width])
-                normalized_images = []
-                for image in images:
-                    # image = torch.size([channels, height, width])
-                    image = torchvision.transforms.functional.normalize(image, Mpii.DATA_INFO.rgb_mean, Mpii.DATA_INFO.rgb_stddev)
-                    normalized_images.append(torch.unsqueeze(image, 0))
-                # normalized_images = [torch.size([channels, height, width])]
-                normalized_images = torch.unsqueeze(torch.cat(normalized_images, dim=0), dim=0)
-                # normalized_images = torch.size([1, frames, channels, height, width])
-                normalized_batch.append(normalized_images)
-            # normalized_batch = [torch.size([1, frames, channels, height, width])]
-
-            input_3 = torch.cat(normalized_batch, dim=0)
-            # input_3 = torch.size([batch_size, frames, channels, height, width])
-
-            heatmaps_list = [torch.unsqueeze(self.pose_model(video)[-1], dim=0) for video in input_3]
+            # Swap channels and frames and upsize to 224x224 for stacked hourglass pose estimator
+            joints_input = input.permute(0, 2, 1, 3, 4)
+            # TODO: check torch.nn.Upsample
+            joints_input = torch.nn.functional.interpolate(joints_input, size=[channels, 256, 256])
+            # Estimate joints for each sample in batch (pose estimator is implemented for images so video is already batch)
+            pose_list = [torch.unsqueeze(self.pose_predictor.estimate_joints(i, flip=True), 0) for i in joints_input]
 
             # Concat tensors in pose list into tensor again
-            heatmaps = torch.cat(heatmaps_list, dim=0)
-            # torch.size([batch, frames, joints, 64, 64])
-
-            # heatmaps = torch.rand((12, 16, 16, 64, 64))
-
-            pose_cnn_input = heatmaps.permute(0, 2, 1, 3, 4)
+            pose_cnn_input = torch.cat(pose_list, dim=0)
+            # Add an empty channels dimension
+            pose_cnn_input = torch.unsqueeze(pose_cnn_input, 1)
 
         # Run pose CNN on extracted poses
         pose_cnn_output = self.pose_cnn(pose_cnn_input)
