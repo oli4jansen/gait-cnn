@@ -35,7 +35,7 @@ class GaitNet(torch.nn.Module):
             torch.nn.MaxPool3d((3, 3, 3)),
             torch.nn.Flatten(start_dim=1),
             torch.nn.Dropout(0.1),
-            torch.nn.Linear(in_features=576, out_features=128)
+            torch.nn.Linear(in_features=576, out_features=256)
         )
 
         self.r2plus1d_18 = r2plus1d_18(pretrained=True)
