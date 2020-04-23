@@ -29,7 +29,7 @@ class GaitNet(torch.nn.Module):
         self.pose_model.to('cuda' if torch.cuda.is_available() else 'cpu')
         self.pose_predictor = HumanPosePredictor(self.pose_model)
 
-        self.pose_joints_cnn = torch.nn.Sequential(
+        self.pose_cnn = torch.nn.Sequential(
             torchvision.models.video.resnet.Conv2Plus1D(1, 32, 32, padding=2),
             torchvision.models.video.resnet.Conv2Plus1D(32, 16, 32, padding=1),
             torch.nn.MaxPool3d((3, 3, 3)),
