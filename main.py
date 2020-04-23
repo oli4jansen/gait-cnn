@@ -105,8 +105,8 @@ def main(args):
         for epoch in range(args.epochs):
             losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
                                                          dataloader=dataloader, lr=args.lr)
-            losses[f'epoch-{epoch}-test'], accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
-            logging.info(f'test accuracy now at {accuracy}')
+            # losses[f'epoch-{epoch}-test'], accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
+            # logging.info(f'test accuracy now at {accuracy}')
 
         with open(f'train_fold_{fold + 1}.json', 'w+') as file:
             json.dump(losses, file)
@@ -144,7 +144,7 @@ def main(args):
     for epoch in range(args.epochs):
         losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
                                                      dataloader=dataloader, lr=args.lr)
-        logging.info(f'test accuracy now at {accuracy}')
+        # logging.info(f'test accuracy now at {accuracy}')
 
     with open(f'train_full_model.json', 'w+') as file:
         json.dump(losses, file)
