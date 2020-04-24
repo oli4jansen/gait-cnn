@@ -41,6 +41,8 @@ def train_epoch(criterion, epochs, epoch, model, dataloader, lr):
         logging.info(f'loss is {loss}')
         losses[i] = loss.item()
 
+    return losses
+
 
 def test(model, dataset, batch_size):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
