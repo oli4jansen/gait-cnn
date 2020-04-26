@@ -14,6 +14,7 @@ from dataset import GaitDataset
 from models import GaitNet
 
 parser = argparse.ArgumentParser(description='GaitNet')
+parser.add_argument('--mode', choices=['kfold', 'full', 'both'], default='both')
 parser.add_argument('--dataset', type=str, default='data/full/preprocessed')
 parser.add_argument('--k', type=int, default=5)
 parser.add_argument('--lr', type=float, default=1e-4)
@@ -71,88 +72,87 @@ def main(args):
 
     dataset = GaitDataset(args.dataset)
 
-    # Split dataset into folds for k-fold cross validation
-    folds = np.array_split(range(0, len(dataset)), args.k)
-
     logging.info(f'dataset has {len(dataset)} items')
-    logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
     logging.info(f'learning rate is {args.lr}')
     logging.info(f'batch size is {args.bs}')
 
-    fold_accuracies = []
+    if args.mode is 'kfold' or args.mode is 'both':
+        # Split dataset into folds for k-fold cross validation
+        folds = np.array_split(range(0, len(dataset)), args.k)
+        logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
 
-    for fold in range(0, args.k):
-        logging.info(f'starting with fold {fold + 1}/{args.k}')
+        fold_accuracies = []
 
+        for fold in range(0, args.k):
+            logging.info(f'starting with fold {fold + 1}/{args.k}')
+
+            # Init new model
+            model = GaitNet(num_classes=len(dataset.classes))
+            model.to(device)
+
+            # The current fold index will be the test set, others will be train set
+            train_folds = [f for i, f in enumerate(folds) if i != fold]
+            train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
+            test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
+
+            # Train model and save losses to JSON file
+            dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.bs, shuffle=True)
+
+            logging.info(str(len(dataset)) + ' clips in train dataset')
+            logging.info(str(len(dataloader)) + ' batches in train dataloader')
+
+            # Initialise cross entropy with weights as dataset is not balanced perfectly
+            weight = torch.Tensor(train_set.dataset.class_counts)
+            criterion = torch.nn.CrossEntropyLoss(weight=weight)
+
+            losses = dict()
+            for epoch in range(args.epochs):
+                losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
+                                                             dataloader=dataloader, lr=args.lr)
+
+            with open(f'train_fold_{fold + 1}.json', 'w+') as file:
+                json.dump(losses, file)
+
+            # Save checkpoint for this fold
+            checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_fold{fold + 1}.pt'
+            torch.save(model.state_dict(), checkpoint_name)
+            logging.info(f'fold {fold + 1} checkpoint saved')
+
+            # Test model and save loss and accuracy to JSON file
+            test_losses, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
+            with open(f'test_fold_{fold + 1}.json', 'w+') as file:
+                json.dump(dict({'test_losses': test_losses, 'test_accuracy': test_accuracy}), file)
+
+            fold_accuracies.append(test_accuracy)
+
+        # Report mean accuracy of all folds
+        logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
+
+    if args.mode is 'full' or args.mode is 'both':
         # Init new model
         model = GaitNet(num_classes=len(dataset.classes))
         model.to(device)
 
-        # The current fold index will be the test set, others will be train set
-        train_folds = [f for i, f in enumerate(folds) if i != fold]
-        train_set = torch.utils.data.Subset(dataset, indices=list(itertools.chain.from_iterable(train_folds)))
-        test_set = torch.utils.data.Subset(dataset, indices=folds[fold])
-
         # Train model and save losses to JSON file
-        dataloader = torch.utils.data.DataLoader(train_set, batch_size=args.bs, shuffle=True)
-
-        logging.info(str(len(dataset)) + ' clips in train dataset')
-        logging.info(str(len(dataloader)) + ' batches in train dataloader')
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True)
 
         # Initialise cross entropy with weights as dataset is not balanced perfectly
-        weight = torch.Tensor(train_set.dataset.class_counts)
+        weight = torch.Tensor(dataset.class_counts)
         criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
         losses = dict()
         for epoch in range(args.epochs):
             losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
                                                          dataloader=dataloader, lr=args.lr)
+            # logging.info(f'test accuracy now at {accuracy}')
 
-        with open(f'train_fold_{fold + 1}.json', 'w+') as file:
+        with open(f'train_full_model.json', 'w+') as file:
             json.dump(losses, file)
 
         # Save checkpoint for this fold
-        checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_fold{fold + 1}.pt'
+        checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_full_model.pt'
         torch.save(model.state_dict(), checkpoint_name)
-        logging.info(f'fold {fold + 1} checkpoint saved')
-
-        # Test model and save loss and accuracy to JSON file
-        test_losses, test_accuracy = test(model=model, dataset=test_set, batch_size=args.bs)
-        with open(f'test_fold_{fold + 1}.json', 'w+') as file:
-            json.dump(dict({'test_losses': test_losses, 'test_accuracy': test_accuracy}), file)
-
-        fold_accuracies.append(test_accuracy)
-
-    # Report mean accuracy of all folds
-    logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
-
-
-    # Now train full model
-
-    # Init new model
-    model = GaitNet(num_classes=len(dataset.classes))
-    model.to(device)
-
-    # Train model and save losses to JSON file
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True)
-
-    # Initialise cross entropy with weights as dataset is not balanced perfectly
-    weight = torch.Tensor(dataset.class_counts)
-    criterion = torch.nn.CrossEntropyLoss(weight=weight)
-
-    losses = dict()
-    for epoch in range(args.epochs):
-        losses[f'epoch-{epoch}-train'] = train_epoch(criterion, epochs=args.epochs, epoch=epoch, model=model,
-                                                     dataloader=dataloader, lr=args.lr)
-        # logging.info(f'test accuracy now at {accuracy}')
-
-    with open(f'train_full_model.json', 'w+') as file:
-        json.dump(losses, file)
-
-    # Save checkpoint for this fold
-    checkpoint_name = f'checkpoint_{os.path.basename(args.dataset)}_full_model.pt'
-    torch.save(model.state_dict(), checkpoint_name)
-    logging.info('full model checkpoint saved')
+        logging.info('full model checkpoint saved')
 
 
 def init():
