@@ -76,7 +76,7 @@ def main(args):
     logging.info(f'learning rate is {args.lr}')
     logging.info(f'batch size is {args.bs}')
 
-    if args.mode is 'kfold' or args.mode is 'both':
+    if args.mode == 'kfold' or args.mode == 'both':
         # Split dataset into folds for k-fold cross validation
         folds = np.array_split(range(0, len(dataset)), args.k)
         logging.info(f'folds will be of size {[len(fold) for fold in folds]}')
@@ -128,7 +128,7 @@ def main(args):
         # Report mean accuracy of all folds
         logging.info(f'{args.k}-fold mean accuracy: {mean(fold_accuracies)}')
 
-    if args.mode is 'full' or args.mode is 'both':
+    if args.mode == 'full' or args.mode == 'both':
         # Init new model
         model = GaitNet(num_classes=len(dataset.classes))
         model.to(device)
