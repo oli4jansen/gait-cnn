@@ -11,7 +11,7 @@ class GaitDataset(VisionDataset):
     def __init__(self, root, for_training=False, limit=None):
         super(GaitDataset, self).__init__(root)
 
-        self.videos, self.id_to_class, self.class_counts = parse_synth_folder(root, limit)
+        self.videos, self.id_to_class, self.class_counts = parse_synth_folder(root, limit=limit)
         self.classes = sorted(self.id_to_class.values())
 
         if for_training:
@@ -56,8 +56,8 @@ def parse_synth_folder(dir, limit=None, extensions=['mp4']):
         for extension in extensions:
             file_list += glob(os.path.join(dir, f'*.{extension}'))
 
-    if limit is not None and limit < len(file_list):
-        file_list = sorted(file_list, key=lambda x: int(x.split('_')[0]))[:int(limit)]
+    if limit is not None and int(limit) < len(file_list):
+        file_list = sorted(file_list, key=lambda x: int(os.path.basename(x).split('_')[0]))[:int(limit)]
 
     for path in file_list:
         if os.path.isdir(path):
