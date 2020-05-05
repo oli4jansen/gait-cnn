@@ -71,7 +71,7 @@ def test(model, dataset, batch_size):
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    dataset = GaitDataset(args.dataset)
+    dataset = GaitDataset(args.dataset, args.dataset_limit)
 
     logging.info(f'dataset has {len(dataset)} items')
     logging.info(f'learning rate is {args.lr}')
