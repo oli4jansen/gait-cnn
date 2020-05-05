@@ -57,7 +57,7 @@ def parse_synth_folder(dir, limit=None, extensions=['mp4']):
             file_list += glob(os.path.join(dir, f'*.{extension}'))
 
     if limit is not None and limit < len(file_list):
-        file_list = file_list[:limit]
+        file_list = sorted(file_list, key=lambda x: int(x.split('_')[0]))[:limit]
 
     for path in file_list:
         if os.path.isdir(path):
