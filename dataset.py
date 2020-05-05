@@ -8,10 +8,10 @@ from torchvision.datasets import VisionDataset
 
 
 class GaitDataset(VisionDataset):
-    def __init__(self, root, for_training=False):
+    def __init__(self, root, for_training=False, limit=None):
         super(GaitDataset, self).__init__(root)
 
-        self.videos, self.id_to_class, self.class_counts = parse_synth_folder(root)
+        self.videos, self.id_to_class, self.class_counts = parse_synth_folder(root, limit)
         self.classes = sorted(self.id_to_class.values())
 
         if for_training:
@@ -41,7 +41,7 @@ class GaitDataset(VisionDataset):
         return vframes, class_id
 
 
-def parse_synth_folder(dir, extensions=['mp4']):
+def parse_synth_folder(dir, limit=None, extensions=['mp4']):
     """ Parses SYDAMO folders for GaitDataset creation """
 
     videos = []
@@ -55,6 +55,9 @@ def parse_synth_folder(dir, extensions=['mp4']):
     else:
         for extension in extensions:
             file_list += glob(os.path.join(dir, f'*.{extension}'))
+
+    if limit is not None and limit < len(file_list):
+        file_list = file_list[:limit]
 
     for path in file_list:
         if os.path.isdir(path):
