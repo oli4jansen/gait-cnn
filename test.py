@@ -50,28 +50,29 @@ def main(args):
 
     # Run test and keep track of losses and correct predictions
     test_losses = []
-    correct = 0
+    acc1_list = np.array([])
+    acc5_list = np.array([])
     with torch.no_grad():
         for inputs, labels in tqdm(dataloader):
             outputs = model(inputs)
             test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
-            preds = outputs.argmax(dim=1, keepdim=True)
-
-            correct += preds.eq(labels.view_as(preds)).sum().item()
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
-            print(acc1, acc5)
+            acc1_list.append(acc1)
+            acc5_list.append(acc5)
 
 
     # Report and save to file
-    text_accuracy = 100. * correct / len(dataloader.dataset)
+    acc1 = np.mean(acc1_list)
+    acc5 = np.mean(acc5_list)
     logging.info(f'avg test loss: {mean(test_losses)}')
     logging.info(f'min test loss: {min(test_losses)}')
     logging.info(f'max test loss: {max(test_losses)}')
-    logging.info(f'test accuracy: {text_accuracy}')
+    logging.info(f'test accuracy (top-1): {acc1}')
+    logging.info(f'test accuracy (top-5): {acc5}')
 
     with open(args.output, 'w+') as file:
-        json.dump(dict({'test_losses': test_losses, 'test_accuracy': text_accuracy}), file)
+        json.dump(dict({'test_losses': test_losses, 'accuracy-top-1': acc1, 'accuracy-top-5': acc5}), file)
 
 
 
