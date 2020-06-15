@@ -58,8 +58,8 @@ def main(args):
             test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
-            acc1_list.append(acc1)
-            acc5_list.append(acc5)
+            acc1_list = np.append(acc1_list, acc1)
+            acc5_list = np.append(acc5_list, acc5)
 
 
     # Report and save to file
