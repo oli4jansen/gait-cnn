@@ -1,5 +1,6 @@
 import json
 import coloredlogs
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import argparse
@@ -17,6 +18,22 @@ parser.add_argument('--dataset', type=str, default='data/test/preprocessed')
 parser.add_argument('--bs', type=int, default=24)
 parser.add_argument('--output', type=str, default='test_results.json')
 
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
 
 def main(args):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -39,17 +56,23 @@ def main(args):
             outputs = model(inputs)
             test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
             preds = outputs.argmax(dim=1, keepdim=True)
+
             correct += preds.eq(labels.view_as(preds)).sum().item()
 
+            acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
+            print(acc1, acc5)
+
+
     # Report and save to file
-    accuracy = 100. * correct / len(dataloader.dataset)
+    text_accuracy = 100. * correct / len(dataloader.dataset)
     logging.info(f'avg test loss: {mean(test_losses)}')
     logging.info(f'min test loss: {min(test_losses)}')
     logging.info(f'max test loss: {max(test_losses)}')
-    logging.info(f'test accuracy: {accuracy}')
+    logging.info(f'test accuracy: {text_accuracy}')
 
     with open(args.output, 'w+') as file:
-        json.dump(dict({'test_losses': test_losses, 'test_accuracy': accuracy}), file)
+        json.dump(dict({'test_losses': test_losses, 'test_accuracy': text_accuracy}), file)
+
 
 
 def init():
