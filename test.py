@@ -61,7 +61,7 @@ def main(args):
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
             acc1_list = np.append(acc1_list, acc1.cpu())
             acc5_list = np.append(acc5_list, acc5.cpu())
-            bar.set_description(f't1={np.mean(acc1_list)},t5={np.mean(acc5_list)}')
+            bar.set_description(f't1={np.around(np.mean(acc1_list), 2)},t5={np.around(np.mean(acc5_list), 2)}')
 
 
     # Report and save to file
