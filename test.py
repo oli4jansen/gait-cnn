@@ -53,13 +53,15 @@ def main(args):
     acc1_list = np.array([])
     acc5_list = np.array([])
     with torch.no_grad():
-        for inputs, labels in tqdm(dataloader):
+        bar = tqdm(dataloader)
+        for inputs, labels in bar:
             outputs = model(inputs)
             test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
             acc1_list = np.append(acc1_list, acc1.cpu())
             acc5_list = np.append(acc5_list, acc5.cpu())
+            bar.set_description(f't1={np.mean(acc1_list)},t5={np.mean(acc5_list)}')
 
 
     # Report and save to file
