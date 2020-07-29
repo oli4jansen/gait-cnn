@@ -8,6 +8,7 @@ import logging
 from statistics import mean
 
 from tqdm import tqdm
+from sklearn.metrics import multilabel_confusion_matrix
 
 from dataset import GaitDataset
 from models import GaitNet
@@ -50,6 +51,10 @@ def main(args):
 
     # Run test and keep track of losses and correct predictions
     test_losses = []
+
+    y_true = np.array([])
+    y_pred = np.array([])
+
     acc1_list = np.array([])
     acc5_list = np.array([])
     with torch.no_grad():
@@ -57,6 +62,9 @@ def main(args):
         for inputs, labels in bar:
             outputs = model(inputs)
             test_losses.append(torch.nn.functional.cross_entropy(outputs, labels).item())
+
+            y_true = np.concatenate(y_true, labels)
+            y_pred = np.concatenate(y_pred, outputs)
 
             acc1, acc5 = accuracy(outputs, labels, topk=(1, 5))
             acc1_list = np.append(acc1_list, acc1.cpu())
@@ -67,14 +75,18 @@ def main(args):
     # Report and save to file
     acc1 = np.mean(acc1_list)
     acc5 = np.mean(acc5_list)
+    confusion_matrix = multilabel_confusion_matrix(y_true, y_pred)
+
     logging.info(f'avg test loss: {mean(test_losses)}')
     logging.info(f'min test loss: {min(test_losses)}')
     logging.info(f'max test loss: {max(test_losses)}')
     logging.info(f'test accuracy (top-1): {acc1}')
     logging.info(f'test accuracy (top-5): {acc5}')
 
+    logging.info(f'confusion matrix: {confusion_matrix}')
+
     with open(args.output, 'w+') as file:
-        json.dump(dict({'test_losses': test_losses, 'accuracy-top-1': acc1, 'accuracy-top-5': acc5}), file)
+        json.dump(dict({'test_losses': test_losses, 'confusion_matrix': confusion_matrix, 'accuracy-top-1': acc1, 'accuracy-top-5': acc5}), file)
 
 
 
